@@ -1,5 +1,13 @@
 <?php
 declare(strict_types=1);
+session_start(); // <--- TAMBAHKAN PERSIS DI SINI (BARIS 3)
+
+// =====================================================================
+// 0. ERROR REPORTING (Development Mode)
+// =====================================================================
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+// ... (sisa kode index.php biarkan sama persis seperti yang Anda kirim)
 
 /**
  * =====================================================================
@@ -548,7 +556,7 @@ try {
     if ($isAjax) {
         json_response([
             'error' => 'Internal Server Error',
-            'message' => APP_DEBUG ? $e->getMessage() : 'Terjadi kesalahan pada server',
+            'message' => (defined('APP_DEBUG') && APP_DEBUG) ? $e->getMessage() : 'Terjadi kesalahan pada server',
         ], 500);
         exit;
     }
@@ -630,8 +638,8 @@ try {
             <h2>⚠️ Internal Server Error</h2>
             <p>Terjadi kesalahan pada server. Silakan coba lagi beberapa saat.</p>
             
-            <?php if (APP_DEBUG): ?>
-                <div class="error-box">
+            <?php if (defined('APP_DEBUG') && APP_DEBUG): ?>
+    <div class="error-box">
                     <pre><strong>Error:</strong> <?= e($e->getMessage()) ?>
 
 <strong>File:</strong> <?= e($e->getFile()) ?>:<?= $e->getLine() ?>
