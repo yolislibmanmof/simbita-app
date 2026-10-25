@@ -1,35 +1,51 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../Models/Notification.php';
-
 class NotificationController
 {
+    /**
+     * Tampilkan halaman notifikasi
+     */
+    public static function showNotifications(): void
+    {
+        Auth::start();
+        
+        $userId = Auth::id();
+        $notifications = Notification::latest($userId, 50);
+
+        require dirname(__DIR__) . '/Views/notifications.php';
+    }
+
+    /**
+     * Tandai semua notifikasi sudah dibaca
+     */
     public static function markAllRead(): void
     {
         Auth::start();
-        Auth::requireRole('admin', 'lecturer', 'student');
-
-        $input = json_decode(file_get_contents('php://input'), true);
-        $token = $input['csrf_token'] ?? '';
-
-        if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
-            json_response(['message' => 'Sesi tidak valid.'], 419);
+        
+        $csrfToken = $_POST['csrf_token'] ?? '';
+        if (!Csrf::verify($csrfToken)) {
+            json_response(['error' => 'Token tidak valid'], 419);
         }
 
         Notification::markAsRead(Auth::id());
-
-        json_response(['message' => 'Semua notifikasi ditandai sudah dibaca.']);
+        json_response(['success' => true, 'message' => 'Semua notifikasi ditandai sudah dibaca']);
     }
 
+    /**
+     * Tandai satu notifikasi sudah dibaca
+     */
     public static function markOneRead(): void
     {
         Auth::start();
-        Auth::requireRole('admin', 'lecturer', 'student');
+        
+        $notificationId = (int)($_POST['notification_id'] ?? 0);
+        
+        if (!$notificationId) {
+            json_response(['error' => 'Invalid notification ID'], 400);
+        }
 
-        $id = (int) ($_POST['notification_id'] ?? 0);
-        Notification::markAsRead(Auth::id(), $id);
-
-        json_response(['message' => 'Notifikasi ditandai sudah dibaca.']);
+        Notification::markAsRead(Auth::id(), $notificationId);
+        json_response(['success' => true, 'message' => 'Notifikasi ditandai sudah dibaca']);
     }
 }

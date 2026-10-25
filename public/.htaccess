@@ -1,0 +1,28 @@
+# =========================================================================
+# SIMBITA - .htaccess Configuration
+# =========================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /simbita-app/public/
+    
+    # PENTING: Folder assets HARUS diakses langsung (CSS, JS, images)
+    RewriteCond %{REQUEST_URI} ^/simbita-app/public/assets/ [OR]
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Semua request lain ke index.php
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Disable directory listing
+Options -Indexes
+
+# Cache control
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/* "access plus 1 month"
+</IfModule>
