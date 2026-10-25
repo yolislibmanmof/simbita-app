@@ -99,3 +99,50 @@
 [25-Oct-2026 16:41:02 Asia/Jakarta] [GET /login] Call to undefined method Auth::requireGuest()
 [25-Oct-2026 16:41:13 Asia/Jakarta] [GET /login] Call to undefined method Auth::requireGuest()
 [25-Oct-2026 16:41:16 Asia/Jakarta] [GET /login] Call to undefined method Auth::requireGuest()
+[25-Oct-2026 16:44:49 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:44:49 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:44:55 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:44:55 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:44:56 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:44:57 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:44:58 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:45:53 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:45:55 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:46:11 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:46:12 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:54:43 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:20 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:23 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:25 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:27 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:28 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:29 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:31 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:39 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:55:46 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:17 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:17 Asia/Jakarta] PHP Warning:  require(C:\laragon\www\simbita-app\app/Views/notifications.php): Failed to open stream: No such file or directory in C:\laragon\www\simbita-app\app\Controllers\NotificationController.php on line 16
+[25-Oct-2026 16:56:17 Asia/Jakarta] [GET /notifications] Failed opening required 'C:\laragon\www\simbita-app\app/Views/notifications.php' (include_path='.;C:/laragon/etc/php/pear')
+[25-Oct-2026 16:56:32 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:32 Asia/Jakarta] PHP Warning:  require(C:\laragon\www\simbita-app\app/Views/notifications.php): Failed to open stream: No such file or directory in C:\laragon\www\simbita-app\app\Controllers\NotificationController.php on line 16
+[25-Oct-2026 16:56:32 Asia/Jakarta] [GET /notifications] Failed opening required 'C:\laragon\www\simbita-app\app/Views/notifications.php' (include_path='.;C:/laragon/etc/php/pear')
+[25-Oct-2026 16:56:38 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:40 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:42 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:42 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:43 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:43 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:43 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:44 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:44 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:45 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:46 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:46 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:46 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:47 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:47 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:48 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:48 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:49 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:49 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[25-Oct-2026 16:56:50 Asia/Jakarta] [Database] Connected to simbita_db @ localhost

@@ -48,6 +48,7 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
     padding: 0.7rem 1.5rem;
     display: flex;
     align-items: center;
+    justify-content: space-between; /* <-- UBAH BARIS INI */
     gap: 1.5rem;
 }
 
@@ -76,12 +77,12 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
 .nb-menu {
     display: flex;
     align-items: center;
+    justify-content: center; /* <-- TAMBAH BARIS INI */
     gap: 0.25rem;
     list-style: none;
     margin: 0;
     padding: 0;
     flex: 1;
-    min-width: 0;
 }
 
 .nb-menu a {
@@ -125,7 +126,7 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    margin-left: auto;
+    /* margin-left: auto; <-- HAPUS BARIS INI JIKA ADA */
     flex-shrink: 0;
 }
 

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-session_start(); // <--- TAMBAHKAN PERSIS DI SINI (BARIS 3)
+session_start(); 
 
 // =====================================================================
 // 0. ERROR REPORTING (Development Mode)
@@ -168,7 +168,6 @@ try {
         // =================================================================
         $path === '/login' && $method === 'GET' 
             => (function() {
-                Auth::requireGuest('/admin/dashboard'); // Redirect jika sudah login
                 AuthController::showLogin();
             })(),
         
