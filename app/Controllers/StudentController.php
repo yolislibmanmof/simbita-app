@@ -67,7 +67,16 @@ class StudentController
 
         // Validasi dasar
         if (!isset($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
-            $_SESSION['flash_error'] = 'Gagal mengunggah file. Silakan coba lagi.';
+            $err = $_FILES['document']['error'] ?? 'missing';
+            $msgs = [
+                UPLOAD_ERR_INI_SIZE   => 'File melebihi batas upload_max_filesize di php.ini. Perkecil ukuran file.',
+                UPLOAD_ERR_FORM_SIZE  => 'File melebihi batas ukuran form.',
+                UPLOAD_ERR_PARTIAL    => 'File hanya terunggah sebagian. Coba ulang.',
+                UPLOAD_ERR_NO_FILE    => 'Tidak ada file yang dipilih.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Folder temporary server tidak ditemukan.',
+                UPLOAD_ERR_CANT_WRITE => 'Server gagal menulis file ke disk.',
+            ];
+            $_SESSION['flash_error'] = $msgs[$err] ?? 'Gagal mengunggah file (kode error: ' . $err . ').';
             redirect('/student/upload');
         }
 
@@ -103,7 +112,7 @@ class StudentController
             redirect('/student/upload');
         }
 
-        chmod($filePath, 0640); // Permission lebih ketat (hanya owner & group read)
+        chmod($filePath, 0640); // Permission ketat
 
         $db = Database::connection();
         
@@ -153,11 +162,7 @@ class StudentController
 
             $versionId = (int)$db->lastInsertId();
 
-            // Buat status review PENDING untuk versi baru ini
-            $stmt = $db->prepare('INSERT INTO reviews (document_version_id, review_status, created_at) VALUES (?, ?, NOW())');
-            $stmt->execute([$versionId, 'pending']);
-
-            // Notifikasi ke SEMUA dosen pembimbing aktif (Supervisor 1 & 2)
+            // Ambil dosen pembimbing aktif & buat review PENDING per dosen
             $stmt = $db->prepare('
                 SELECT lp.user_id FROM supervision_assignments sa
                 JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id
@@ -165,13 +170,82 @@ class StudentController
             ');
             $stmt->execute([$work['id']]);
             $supervisors = $stmt->fetchAll();
-            
+
+            $supervisorUserIds = [];
+            foreach ($supervisors as $sup) {
+                $supervisorUserIds[] = (int)$sup['user_id'];
+
+                // Buat review PENDING per dosen (reviewer_id WAJIB diisi)
+                $stmtReview = $db->prepare('
+                    INSERT INTO reviews (document_version_id, reviewer_id, review_status, created_at)
+                    VALUES (?, ?, ?, NOW())
+                ');
+                $stmtReview->execute([$versionId, (int)$sup['user_id'], 'pending']);
+            }
+
+            // ===== TINDAK LANJUT REVISI: Carry-over komentar belum terselesaikan =====
+            if ($nextVersion > 1 && !empty($supervisorUserIds)) {
+                // Ambil komentar unresolved dari versi sebelumnya
+                $stmtOldComments = $db->prepare('
+                    SELECT rc.id, rc.page_number, rc.position_x, rc.position_y, 
+                           rc.comment_text, rc.priority,
+                           r.reviewer_id
+                    FROM review_comments rc
+                    JOIN reviews r ON rc.review_id = r.id
+                    JOIN document_versions dv ON r.document_version_id = dv.id
+                    WHERE dv.document_id = ? 
+                      AND dv.version_number = ?
+                      AND rc.is_resolved = 0
+                ');
+                $stmtOldComments->execute([$documentId, $nextVersion - 1]);
+                $oldUnresolved = $stmtOldComments->fetchAll();
+
+                if (!empty($oldUnresolved)) {
+                    // Ambil review PENDING milik dosen untuk versi baru ini
+                    $placeholders = implode(',', array_fill(0, count($supervisorUserIds), '?'));
+                    $stmtNewReviews = $db->prepare("
+                        SELECT r.id, r.reviewer_id 
+                        FROM reviews r 
+                        WHERE r.document_version_id = ? 
+                          AND r.reviewer_id IN ($placeholders)
+                          AND r.review_status = 'pending'
+                    ");
+                    $stmtNewReviews->execute(array_merge([$versionId], $supervisorUserIds));
+                    
+                    $newReviewsByReviewer = [];
+                    foreach ($stmtNewReviews->fetchAll() as $nr) {
+                        $newReviewsByReviewer[(int)$nr['reviewer_id']] = (int)$nr['id'];
+                    }
+
+                    // Duplikasi komentar unresolved ke review versi baru (carry-over)
+                    $stmtCopy = $db->prepare('
+                        INSERT INTO review_comments 
+                        (review_id, document_version_id, page_number, position_x, position_y, 
+                         comment_text, priority, is_resolved, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
+                    ');
+                    foreach ($oldUnresolved as $old) {
+                        $targetReviewId = $newReviewsByReviewer[(int)$old['reviewer_id']] ?? null;
+                        if ($targetReviewId) {
+                            $stmtCopy->execute([
+                                $targetReviewId, $versionId,
+                                $old['page_number'], $old['position_x'], $old['position_y'],
+                                '[CARRY-OVER] ' . $old['comment_text'],
+                                $old['priority']
+                            ]);
+                        }
+                    }
+                }
+            }
+            // =================================================================
+
+            // Notifikasi ke SEMUA dosen pembimbing aktif
             foreach ($supervisors as $sup) {
                 Notification::create(
                     (int)$sup['user_id'],
                     'Dokumen Baru Diupload',
                     sprintf('%s mengunggah %s (Versi %d)', Auth::user()['name'] ?? 'Mahasiswa', $file['name'], $nextVersion),
-                    'upload',
+                    'system',
                     'document_versions',
                     $versionId,
                     '/lecturer/review?id=' . $work['id']
@@ -184,7 +258,7 @@ class StudentController
 
         } catch (Exception $e) {
             $db->rollBack();
-            if (file_exists($filePath)) unlink($filePath); // Hapus file fisik jika DB gagal
+            if (file_exists($filePath)) unlink($filePath);
             error_log('[Student Upload Error] ' . $e->getMessage());
             $_SESSION['flash_error'] = 'Terjadi kesalahan sistem saat menyimpan dokumen.';
             redirect('/student/upload');
@@ -222,16 +296,20 @@ class StudentController
         $stmt->execute([$student['id']]);
         $history = $stmt->fetchAll();
         
-        // 2. AMBIL DATA ANOTASI UNTUK SETIAP VERSI DOKUMEN (KRUSIAL!)
+        // 2. Ambil data anotasi + flag carry-over
         $annotationsMap = [];
+        $versionStats = [];
+        
         if (!empty($history)) {
             $versionIds = array_column($history, 'id');
             $placeholders = implode(',', array_fill(0, count($versionIds), '?'));
             
             $stmt = $db->prepare("
-                SELECT rc.*, r.document_version_id 
+                SELECT rc.*, r.document_version_id, u.name AS author_name,
+                       (rc.comment_text LIKE '[CARRY-OVER]%') AS is_carried_over
                 FROM review_comments rc
                 JOIN reviews r ON rc.review_id = r.id
+                JOIN users u ON r.reviewer_id = u.id
                 WHERE r.document_version_id IN ($placeholders)
                 ORDER BY rc.page_number ASC, rc.created_at ASC
             ");
@@ -240,9 +318,23 @@ class StudentController
             foreach ($stmt->fetchAll() as $ann) {
                 $annotationsMap[$ann['document_version_id']][] = $ann;
             }
+
+            // 3. Hitung statistik per versi: total, resolved, unresolved, percent
+            foreach ($history as $h) {
+                $vid = (int)$h['id'];
+                $anns = $annotationsMap[$vid] ?? [];
+                $total = count($anns);
+                $resolved = count(array_filter($anns, fn($a) => !empty($a['is_resolved'])));
+                $versionStats[$vid] = [
+                    'total' => $total,
+                    'resolved' => $resolved,
+                    'unresolved' => $total - $resolved,
+                    'percent' => $total > 0 ? (int)round(($resolved / $total) * 100) : 0,
+                ];
+            }
         }
         
-        // 3. Kirim SEMUA variabel ke view
+        // 4. Kirim SEMUA variabel ke view
         require dirname(__DIR__) . '/Views/student/history.php';
     }
- } 
+}

@@ -6,6 +6,7 @@ unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 
 $myStudents = $myStudents ?? [];
 $pendingReviews = $pendingReviews ?? [];
+$upcomingMilestones = $upcomingMilestones ?? [];
 
 $total = count($myStudents);
 $pending = count($pendingReviews);
@@ -744,7 +745,7 @@ $statusMeta = [
                 </div>
                 <div class="ld-welcome-date">
                     <i class="bi bi-calendar-event"></i>
-                    <?= strftime('%A, %d %B %Y', time()) ?>
+                    <?= e(id_date()) ?>
                 </div>
             </div>
         </div>
@@ -895,8 +896,80 @@ $statusMeta = [
                 </div>
             </div>
 
+                        <!-- Right Column -->
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- === WIDGET DEADLINE MAHASISWA BIMBINGAN (FITUR BARU) === -->
+                <?php if (!empty($upcomingMilestones)): ?>
+                <div class="ld-card" style="border: 1.5px solid #fef3c7; background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);">
+                    <div class="ld-card-header" style="background: linear-gradient(to right, #fef3c7, #fffbeb);">
+                        <h3 class="ld-card-title" style="color: #92400e;">
+                            <i class="bi bi-alarm-fill" style="color: #f59e0b;"></i>
+                            Deadline Mahasiswa
+                        </h3>
+                        <span style="font-size: 0.72rem; color: #92400e; font-weight: 600; padding: 0.25rem 0.6rem; background: white; border-radius: var(--radius-full); border: 1px solid #fde68a;">
+                            <i class="bi bi-bell-fill"></i> <?= count($upcomingMilestones) ?> Aktif
+                        </span>
+                    </div>
+                    <div class="ld-card-body" style="padding: 0.85rem; max-height: 400px; overflow-y: auto;">
+                        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                            <?php foreach ($upcomingMilestones as $ms): 
+                                $daysLeft = (int)($ms['days_left'] ?? 0);
+                                
+                                // Urgency color logic
+                                if ($daysLeft <= 0) {
+                                    $urgencyColor = '#dc2626'; $urgencyBg = '#fee2e2'; $urgencyText = '#991b1b';
+                                    $urgencyLabel = 'HARI INI!';
+                                } elseif ($daysLeft === 1) {
+                                    $urgencyColor = '#dc2626'; $urgencyBg = '#fee2e2'; $urgencyText = '#991b1b';
+                                    $urgencyLabel = 'BESOK';
+                                } elseif ($daysLeft <= 3) {
+                                    $urgencyColor = '#f59e0b'; $urgencyBg = '#fef3c7'; $urgencyText = '#92400e';
+                                    $urgencyLabel = "{$daysLeft} hari";
+                                } elseif ($daysLeft <= 7) {
+                                    $urgencyColor = '#3b82f6'; $urgencyBg = '#dbeafe'; $urgencyText = '#1e40af';
+                                    $urgencyLabel = "{$daysLeft} hari";
+                                } else {
+                                    $urgencyColor = '#6b7280'; $urgencyBg = '#f3f4f6'; $urgencyText = '#374151';
+                                    $urgencyLabel = "{$daysLeft} hari";
+                                }
+                            ?>
+                            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: <?= $urgencyBg ?>; border-radius: var(--radius-lg); border-left: 4px solid <?= $urgencyColor ?>; transition: all 0.2s;">
+                                <!-- Avatar dengan initials -->
+                                <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: <?= $urgencyColor ?>; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+                                    <?= e($initials($ms['student_name'])) ?>
+                                </div>
+                                <!-- Info Mahasiswa + Milestone -->
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 700; color: var(--gray-900); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.1rem;">
+                                        <?= e($ms['title']) ?>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--gray-600);">
+                                        <i class="bi bi-person-fill" style="color: var(--gray-400);"></i>
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= e($ms['student_name']) ?></span>
+                                        <span style="color: var(--gray-300);">•</span>
+                                        <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--ld-primary); font-size: 0.7rem;"><?= e($ms['student_number']) ?></span>
+                                    </div>
+                                </div>
+                                <!-- Days Counter -->
+                                <div style="text-align: center; padding: 0.3rem 0.6rem; background: white; border-radius: var(--radius-md); min-width: 50px; border: 1px solid <?= $urgencyColor ?>33;">
+                                    <div style="font-size: 1.25rem; font-weight: 800; color: <?= $urgencyColor ?>; line-height: 1;"><?= max(0, $daysLeft) ?></div>
+                                    <div style="font-size: 0.6rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;"><?= $urgencyLabel ?></div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <!-- === AKHIR WIDGET DEADLINE === -->
+
+                <!-- Right: Pending Reviews -->
+                <div class="ld-card ld-pending-card">
+
             <!-- Right: Pending Reviews -->
             <div class="ld-card ld-pending-card">
+                
                 <div class="ld-card-header">
                     <h3 class="ld-card-title">
                         <i class="bi bi-exclamation-circle-fill"></i>
@@ -942,6 +1015,7 @@ $statusMeta = [
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+            </div>
             </div>
         </div>
     </div>

@@ -470,7 +470,7 @@ $maxSizeBytes = $maxSizeMB * 1024 * 1024;
                     <div class="su-form-group">
                         <label class="su-label">File Dokumen <span style="color: var(--accent-red);">*</span></label>
                         <div class="su-dropzone" id="dropzone">
-                            <input type="file" name="document_file" id="fileInput" class="su-file-input" accept=".pdf" required>
+                            <input type="file" name="document" id="fileInput" class="su-file-input" accept=".pdf" required>
                             <div class="su-dropzone-icon">
                                 <i class="bi bi-file-earmark-pdf-fill"></i>
                             </div>

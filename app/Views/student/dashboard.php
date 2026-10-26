@@ -7,6 +7,7 @@ unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 $myWork       = $myWork ?? null;
 $myDocuments  = $myDocuments ?? [];
 $myMilestones = $myMilestones ?? [];
+$upcomingMilestones = $upcomingMilestones ?? [];
 
 // Stats calculation
 $docCount = count($myDocuments);
@@ -656,9 +657,9 @@ $currentMeta = $myWork ? ($statusMeta[$myWork['status']] ?? $statusMeta['draft']
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="sd-welcome-date">
+                    <div class="dash-welcome-date">
                     <i class="bi bi-calendar-event"></i>
-                    <?= strftime('%A, %d %B %Y', time()) ?>
+                    <?= e(id_date()) ?>
                 </div>
             </div>
         </div>
@@ -756,6 +757,68 @@ $currentMeta = $myWork ? ($statusMeta[$myWork['status']] ?? $statusMeta['draft']
                             <?php endif; ?>
                         </div>
                     </div>
+
+                    <!-- === WIDGET DEADLINE MENDEKAT (FITUR BARU) === -->
+                    <?php if (!empty($upcomingMilestones)): ?>
+                    <div class="sd-card" style="margin-bottom: 1.5rem; border: 1.5px solid #fef3c7; background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);">
+                        <div class="sd-card-header" style="background: linear-gradient(to right, #fef3c7, #fffbeb);">
+                            <h3 class="sd-card-title" style="color: #92400e;">
+                                <i class="bi bi-alarm-fill" style="color: #f59e0b;"></i>
+                                Deadline Mendekat
+                            </h3>
+                            <span style="font-size: 0.72rem; color: #92400e; font-weight: 600; padding: 0.25rem 0.6rem; background: white; border-radius: var(--radius-full); border: 1px solid #fde68a;">
+                                <i class="bi bi-bell-fill"></i> <?= count($upcomingMilestones) ?> Aktif
+                            </span>
+                        </div>
+                        <div class="sd-card-body" style="padding: 1rem;">
+                            <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                                <?php foreach ($upcomingMilestones as $ms): 
+                                    $daysLeft = (int)($ms['days_left'] ?? 0);
+                                    
+                                    // Urgency color logic
+                                    if ($daysLeft <= 0) {
+                                        $urgencyColor = '#dc2626'; $urgencyBg = '#fee2e2'; $urgencyText = '#991b1b';
+                                        $urgencyIcon = 'exclamation-triangle-fill'; $urgencyLabel = 'HARI INI!';
+                                    } elseif ($daysLeft === 1) {
+                                        $urgencyColor = '#dc2626'; $urgencyBg = '#fee2e2'; $urgencyText = '#991b1b';
+                                        $urgencyIcon = 'exclamation-triangle-fill'; $urgencyLabel = 'BESOK';
+                                    } elseif ($daysLeft <= 3) {
+                                        $urgencyColor = '#f59e0b'; $urgencyBg = '#fef3c7'; $urgencyText = '#92400e';
+                                        $urgencyIcon = 'clock-fill'; $urgencyLabel = "{$daysLeft} hari";
+                                    } elseif ($daysLeft <= 7) {
+                                        $urgencyColor = '#3b82f6'; $urgencyBg = '#dbeafe'; $urgencyText = '#1e40af';
+                                        $urgencyIcon = 'calendar-event'; $urgencyLabel = "{$daysLeft} hari";
+                                    } else {
+                                        $urgencyColor = '#6b7280'; $urgencyBg = '#f3f4f6'; $urgencyText = '#374151';
+                                        $urgencyIcon = 'calendar3'; $urgencyLabel = "{$daysLeft} hari";
+                                    }
+                                ?>
+                                <div style="display: flex; align-items: center; gap: 1rem; padding: 0.85rem; background: <?= $urgencyBg ?>; border-radius: var(--radius-lg); border-left: 4px solid <?= $urgencyColor ?>; transition: all 0.2s;">
+                                    <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: <?= $urgencyColor ?>; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+                                        <i class="bi bi-<?= $urgencyIcon ?>"></i>
+                                    </div>
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 700; color: var(--gray-900); font-size: 0.9rem; margin-bottom: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            <?= e($ms['title']) ?>
+                                        </div>
+                                        <div style="font-size: 0.78rem; color: <?= $urgencyText ?>; font-weight: 600;">
+                                            <i class="bi bi-calendar3"></i>
+                                            <?= date('d M Y', strtotime($ms['due_date'])) ?>
+                                            <span style="margin: 0 0.25rem;">•</span>
+                                            <span style="font-weight: 700;"><?= $urgencyLabel ?></span>
+                                        </div>
+                                    </div>
+                                    <div style="text-align: center; padding: 0.4rem 0.75rem; background: white; border-radius: var(--radius-md); min-width: 56px; border: 1px solid <?= $urgencyColor ?>22;">
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: <?= $urgencyColor ?>; line-height: 1;"><?= max(0, $daysLeft) ?></div>
+                                        <div style="font-size: 0.65rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Hari</div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <!-- === AKHIR WIDGET DEADLINE === -->
 
                     <!-- Documents -->
                     <div class="sd-card">

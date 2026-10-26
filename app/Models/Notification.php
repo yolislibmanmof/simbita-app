@@ -43,11 +43,6 @@ class Notification
     // CREATE
     // =================================================================
 
-    /**
-     * Buat notifikasi baru
-     *
-     * @return int ID notifikasi yang dibuat, atau 0 jika gagal
-     */
     public static function create(
         int $userId,
         string $title,
@@ -60,11 +55,9 @@ class Notification
         try {
             $db = Database::connection();
 
-            // Truncate panjang jika melebihi batas
             $title   = mb_substr(trim($title), 0, self::MAX_TITLE_LENGTH);
             $message = mb_substr(trim($message), 0, self::MAX_MESSAGE_LENGTH);
 
-            // Validasi type
             if (!in_array($type, self::ALL_TYPES, true)) {
                 $type = self::TYPE_SYSTEM;
             }
@@ -75,13 +68,7 @@ class Notification
                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
             ');
             $stmt->execute([
-                $userId,
-                $title,
-                $message,
-                $type,
-                $relatedTable,
-                $relatedId,
-                $link,
+                $userId, $title, $message, $type, $relatedTable, $relatedId, $link,
             ]);
             return (int) $db->lastInsertId();
         } catch (Throwable $e) {
@@ -90,12 +77,6 @@ class Notification
         }
     }
 
-    /**
-     * Kirim notifikasi ke banyak user sekaligus (broadcast)
-     *
-     * @param array $userIds Daftar user ID yang akan menerima notifikasi
-     * @return int Jumlah notifikasi yang berhasil dibuat
-     */
     public static function createMany(
         array $userIds,
         string $title,
@@ -104,10 +85,7 @@ class Notification
         ?string $link = null
     ): int {
         $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
-
-        if (empty($userIds)) {
-            return 0;
-        }
+        if (empty($userIds)) return 0;
 
         $count = 0;
         foreach ($userIds as $userId) {
@@ -118,11 +96,6 @@ class Notification
         return $count;
     }
 
-    /**
-     * Kirim notifikasi ke SEMUA user dengan role tertentu
-     * 
-     * @param string $role 'admin', 'lecturer', 'student'
-     */
     public static function broadcastToRole(
         string $role,
         string $title,
@@ -146,16 +119,12 @@ class Notification
     // READ
     // =================================================================
 
-    /**
-     * Ambil notifikasi terbaru user
-     */
     public static function latest(int $userId, int $limit = self::DEFAULT_LIMIT): array
     {
         try {
             $db = Database::connection();
             $stmt = $db->prepare('
-                SELECT id, title, message, type, link, related_table, related_id, 
-                       is_read, created_at
+                SELECT id, title, message, type, link, related_table, related_id, is_read, created_at
                 FROM notifications
                 WHERE user_id = ?
                 ORDER BY created_at DESC
@@ -171,16 +140,10 @@ class Notification
         }
     }
 
-    /**
-     * Ambil semua notifikasi user dengan filter + pagination
-     *
-     * @param array $filters ['type', 'is_read', 'search', 'date_from', 'date_to']
-     */
     public static function getAll(int $userId, array $filters = [], int $page = 1, int $perPage = 20): array
     {
         try {
             $db = Database::connection();
-
             $where = ['user_id = ?'];
             $params = [$userId];
 
@@ -213,12 +176,10 @@ class Notification
 
             $whereClause = 'WHERE ' . implode(' AND ', $where);
 
-            // Count
             $countStmt = $db->prepare("SELECT COUNT(*) AS total FROM notifications $whereClause");
             $countStmt->execute($params);
             $total = (int) $countStmt->fetch()['total'];
 
-            // Fetch
             $offset = max(0, ($page - 1) * $perPage);
             $dataStmt = $db->prepare("
                 SELECT * FROM notifications 
@@ -238,19 +199,10 @@ class Notification
             ];
         } catch (Throwable $e) {
             error_log('[Notification::getAll] ' . $e->getMessage());
-            return [
-                'data'        => [],
-                'total'       => 0,
-                'page'        => $page,
-                'per_page'    => $perPage,
-                'total_pages' => 0,
-            ];
+            return ['data' => [], 'total' => 0, 'page' => $page, 'per_page' => $perPage, 'total_pages' => 0];
         }
     }
 
-    /**
-     * Ambil 1 notifikasi berdasarkan ID (dengan validasi ownership)
-     */
     public static function findById(int $id, int $userId): ?array
     {
         try {
@@ -265,17 +217,11 @@ class Notification
         }
     }
 
-    /**
-     * Hitung notifikasi belum dibaca
-     */
-    public static function unreadCount(int $userId): int
+    public static function countUnread(int $userId): int
     {
         try {
             $db = Database::connection();
-            $stmt = $db->prepare('
-                SELECT COUNT(*) AS total FROM notifications
-                WHERE user_id = ? AND is_read = 0
-            ');
+            $stmt = $db->prepare('SELECT COUNT(*) AS total FROM notifications WHERE user_id = ? AND is_read = 0');
             $stmt->execute([$userId]);
             return (int) $stmt->fetch()['total'];
         } catch (Throwable $e) {
@@ -283,9 +229,6 @@ class Notification
         }
     }
 
-    /**
-     * Hitung total notifikasi
-     */
     public static function countAll(int $userId): int
     {
         try {
@@ -302,12 +245,7 @@ class Notification
     // UPDATE STATUS
     // =================================================================
 
-    /**
-     * Tandai notifikasi sebagai sudah dibaca
-     *
-     * @param int $notificationId null untuk menandai SEMUA notifikasi user
-     */
-    public static function markAsRead(int $userId, ?int $notificationId = null): bool
+    public static function markAsRead(int $userId, ?int $notificationId = null): int
     {
         try {
             $db = Database::connection();
@@ -316,9 +254,10 @@ class Notification
                 $stmt = $db->prepare('
                     UPDATE notifications
                     SET is_read = 1, read_at = NOW()
-                    WHERE id = ? AND user_id = ?
+                    WHERE id = ? AND user_id = ? AND is_read = 0
                 ');
-                return $stmt->execute([$notificationId, $userId]);
+                $stmt->execute([$notificationId, $userId]);
+                return $stmt->rowCount();
             }
 
             $stmt = $db->prepare('
@@ -326,16 +265,14 @@ class Notification
                 SET is_read = 1, read_at = NOW()
                 WHERE user_id = ? AND is_read = 0
             ');
-            return $stmt->execute([$userId]);
+            $stmt->execute([$userId]);
+            return $stmt->rowCount();
         } catch (Throwable $e) {
             error_log('[Notification::markAsRead] ' . $e->getMessage());
-            return false;
+            return 0;
         }
     }
 
-    /**
-     * Tandai notifikasi sebagai BELUM dibaca (useful untuk testing)
-     */
     public static function markAsUnread(int $userId, ?int $notificationId = null): bool
     {
         try {
@@ -366,9 +303,6 @@ class Notification
     // DELETE / CLEANUP
     // =================================================================
 
-    /**
-     * Hapus notifikasi tertentu (milik user)
-     */
     public static function delete(int $id, int $userId): bool
     {
         try {
@@ -381,9 +315,6 @@ class Notification
         }
     }
 
-    /**
-     * Hapus SEMUA notifikasi user
-     */
     public static function deleteAll(int $userId): bool
     {
         try {
@@ -396,20 +327,11 @@ class Notification
         }
     }
 
-    /**
-     * Housekeeping: hapus notifikasi lama yang sudah dibaca
-     * Default: hapus yang sudah dibaca dan lebih dari 30 hari
-     *
-     * @return int Jumlah record yang terhapus
-     */
     public static function cleanup(int $maxDays = 30, ?int $userId = null): int
     {
         try {
             $db = Database::connection();
-
-            $sql = 'DELETE FROM notifications 
-                    WHERE is_read = 1 
-                    AND created_at < DATE_SUB(NOW(), INTERVAL ? DAY)';
+            $sql = 'DELETE FROM notifications WHERE is_read = 1 AND created_at < DATE_SUB(NOW(), INTERVAL ? DAY)';
             $params = [$maxDays];
 
             if ($userId !== null) {
@@ -426,18 +348,11 @@ class Notification
         }
     }
 
-    /**
-     * Hapus notifikasi yang terkait dengan record yang sudah dihapus
-     * (misalnya tugas akhir yang sudah dihapus)
-     */
     public static function cleanupOrphaned(string $table, int $relatedId): int
     {
         try {
             $db = Database::connection();
-            $stmt = $db->prepare('
-                DELETE FROM notifications 
-                WHERE related_table = ? AND related_id = ?
-            ');
+            $stmt = $db->prepare('DELETE FROM notifications WHERE related_table = ? AND related_id = ?');
             $stmt->execute([$table, $relatedId]);
             return $stmt->rowCount();
         } catch (Throwable $e) {

@@ -541,6 +541,87 @@ $timeAgo = function(string $date): string {
             .sh-timeline { padding-left: 1.5rem; }
             .sh-item-dot { width: 26px; height: 26px; font-size: 0.75rem; left: -1.5rem; }
         }
+
+        /* --- Revision Resolution Stats --- */
+.sh-revision-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.sh-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--gray-200);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    min-width: 80px;
+}
+
+.sh-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #059669);
+    border-radius: var(--radius-full);
+    transition: width 0.6s ease;
+}
+
+.sh-progress-fill.partial { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.sh-progress-fill.empty { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+.sh-resolve-btn {
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--gray-300);
+    background: white;
+    color: var(--gray-700);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-family: inherit;
+}
+
+.sh-resolve-btn:hover { border-color: var(--sh-primary); color: var(--sh-primary); }
+
+.sh-resolve-btn.is-resolved {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    border-color: #10b981;
+    color: #065f46;
+}
+
+.sh-comment-resolved {
+    opacity: 0.65;
+    background: #f1f5f9 !important;
+    border-left-color: #94a3b8 !important;
+    text-decoration: line-through;
+}
+
+.sh-comment-carried {
+    border-left-color: #8b5cf6 !important;
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe) !important;
+}
+
+.sh-carried-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    background: #8b5cf6;
+    color: white;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+}
     </style>
 </head>
 <body>
@@ -678,16 +759,16 @@ $timeAgo = function(string $date): string {
     <div class="sh-item-meta">
         <div class="sh-meta-item">
             <i class="bi bi-git"></i>
-            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">v<?= e($h['version_number']) ?></span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">v<?= $h['version_number'] ?></span>
         </div>
         <div class="sh-meta-item">
             <i class="bi bi-calendar-event"></i>
             <span><?= date('d M Y, H:i', strtotime($h['uploaded_at'])) ?></span>
         </div>
         
-        <!-- BADGE ANOTASI DOSEN (Fitur Baru) -->
         <?php 
             $annCount = count($annotationsMap[$h['id']] ?? []);
+            $stats = $versionStats[$h['id']] ?? ['total' => 0, 'resolved' => 0, 'unresolved' => 0, 'percent' => 0];
             if ($annCount > 0): 
         ?>
         <div class="sh-meta-item" style="color: #f59e0b; font-weight: 700; cursor: pointer;" onclick="toggleAnnotations(<?= $h['id'] ?>)">
@@ -697,25 +778,57 @@ $timeAgo = function(string $date): string {
         <?php endif; ?>
     </div>
 
+    <?php if ($annCount > 0 && $stats['total'] > 0): ?>
+    <div class="sh-revision-stats">
+        <i class="bi bi-check2-circle" style="color: #10b981;"></i>
+        <span style="font-weight: 600; color: var(--gray-700);">
+            <?= $stats['resolved'] ?>/<?= $stats['total'] ?> Selesai
+        </span>
+        <div class="sh-progress-bar">
+            <div class="sh-progress-fill <?= $stats['percent'] === 100 ? '' : ($stats['percent'] > 0 ? 'partial' : 'empty') ?>" 
+                 style="width: <?= $stats['percent'] ?>%"></div>
+        </div>
+        <span style="font-weight: 700; color: var(--gray-700); font-variant-numeric: tabular-nums;"><?= $stats['percent'] ?>%</span>
+    </div>
+    <?php endif; ?>
+
     <!-- DAFTAR ANOTASI PER HALAMAN (Accordion Toggle) -->
     <?php if ($annCount > 0): ?>
     <div id="ann-list-<?= $h['id'] ?>" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--gray-200);">
         <h6 style="font-size: 0.8rem; font-weight: 700; color: var(--gray-700); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Koreksi & Komentar:</h6>
         <?php foreach ($annotationsMap[$h['id']] as $ann): 
+            $isResolved = !empty($ann['is_resolved']);
+            $isCarriedOver = !empty($ann['is_carried_over']);
             $priorityColor = match($ann['priority']) {
                 'minor' => '#3b82f6',
                 'mandatory' => '#ef4444',
                 default => '#f59e0b'
             };
+            $extraClass = $isResolved ? 'sh-comment-resolved' : ($isCarriedOver ? 'sh-comment-carried' : '');
         ?>
-        <div style="background: white; border: 1px solid var(--gray-200); border-left: 4px solid <?= $priorityColor ?>; padding: 0.75rem; border-radius: var(--radius-md); margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--gray-700);">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                <strong style="color: var(--gray-900);">Halaman <?= $ann['page_number'] ?></strong>
-                <span style="font-size: 0.7rem; padding: 0.1rem 0.4rem; background: <?= $priorityColor ?>; color: white; border-radius: var(--radius-full);"><?= ucfirst($ann['priority']) ?></span>
+        <div class="<?= $extraClass ?>" style="background: white; border: 1px solid var(--gray-200); border-left: 4px solid <?= $priorityColor ?>; padding: 0.75rem; border-radius: var(--radius-md); margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--gray-700);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.25rem; gap: 0.5rem; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                    <?php if ($isCarriedOver): ?>
+                        <span class="sh-carried-badge"><i class="bi bi-arrow-repeat"></i> Carry-over</span>
+                    <?php endif; ?>
+                    <strong style="color: var(--gray-900);">Halaman <?= $ann['page_number'] ?></strong>
+                    <span style="font-size: 0.7rem; padding: 0.1rem 0.4rem; background: <?= $priorityColor ?>; color: white; border-radius: var(--radius-full);"><?= ucfirst($ann['priority']) ?></span>
+                </div>
+                <button type="button" 
+                        class="sh-resolve-btn <?= $isResolved ? 'is-resolved' : '' ?>"
+                        data-comment-id="<?= $ann['id'] ?>"
+                        data-resolved="<?= $isResolved ? '1' : '0' ?>">
+                    <i class="bi bi-<?= $isResolved ? 'check-circle-fill' : 'circle' ?>"></i>
+                    <span><?= $isResolved ? 'Selesai' : 'Tandai Selesai' ?></span>
+                </button>
             </div>
-            <p style="margin: 0; line-height: 1.5;"><?= nl2br(e($ann['comment_text'])) ?></p>
+            <p style="margin: 0; line-height: 1.5;"><?= nl2br(e(preg_replace('/^\[CARRY-OVER\]\s*/', '', $ann['comment_text']))) ?></p>
             <div style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.5rem;">
-                <i class="bi bi-person-fill"></i> <?= e($ann['author_name']) ?> • <?= time_ago($ann['created_at']) ?>
+                <i class="bi bi-person-fill"></i> <?= e($ann['author_name']) ?> • <?= $timeAgo($ann['created_at']) ?>
+                <?php if ($isResolved && !empty($ann['resolved_at'])): ?>
+                    • <span style="color: #10b981; font-weight: 600;"><i class="bi bi-check2"></i> <?= $timeAgo($ann['resolved_at']) ?></span>
+                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; ?>
@@ -829,7 +942,52 @@ $timeAgo = function(string $date): string {
         });
 
         console.log('%c✓ Student History Loaded', 'color: #3b82f6; font-weight: bold;');
+
+                // ===== RESOLVE COMMENT HANDLER =====
+        document.addEventListener('click', async function(e) {
+            const btn = e.target.closest('.sh-resolve-btn');
+            if (!btn) return;
+
+            const commentId = btn.dataset.commentId;
+            const currentlyResolved = btn.dataset.resolved === '1';
+            const newResolved = !currentlyResolved;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Memproses...';
+
+            const formData = new FormData();
+            formData.append('csrf_token', '<?= e(Csrf::token()) ?>');
+            formData.append('comment_id', commentId);
+            formData.append('resolve', newResolved ? '1' : '0');
+
+            try {
+                const res = await fetch('<?= BASE_URL ?>/api/comments/resolve', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    // Reload halaman untuk update statistik (cara paling aman)
+                    window.location.reload();
+                } else {
+                    alert('Gagal: ' + (data.error || 'Unknown'));
+                    btn.disabled = false;
+                    btn.innerHTML = currentlyResolved 
+                        ? '<i class="bi bi-check-circle-fill"></i> Selesai' 
+                        : '<i class="bi bi-circle"></i> Tandai Selesai';
+                }
+            } catch (err) {
+                alert('Error jaringan');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-circle"></i> Tandai Selesai';
+            }
+        });
     })();
+    </script>
+    <script>
+    function toggleAnnotations(versionId) {
+        const list = document.getElementById('ann-list-' + versionId);
+        if (list) {
+            list.style.display = (list.style.display === 'none') ? 'block' : 'none';
+        }
+    }
     </script>
 </body>
 </html>

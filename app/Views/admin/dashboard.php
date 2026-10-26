@@ -20,6 +20,8 @@ $stats = $stats ?? [
 ];
 
 $recentWorks = $recentWorks ?? [];
+$recentNotifications = $recentNotifications ?? [];
+$recentActivities = $recentActivities ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -598,6 +600,167 @@ $recentWorks = $recentWorks ?? [];
             color: var(--gray-500);
             margin-bottom: 1.5rem;
         }
+
+                /* --- Scan Deadline Button --- */
+        .dash-scan-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-weight: 700;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 8px 20px -5px rgba(245, 158, 11, 0.5);
+            font-family: inherit;
+        }
+
+        .dash-scan-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px -5px rgba(245, 158, 11, 0.6);
+        }
+
+        .dash-scan-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .dash-scan-btn .spinner {
+            display: none;
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: dashSpin 0.8s linear infinite;
+        }
+
+        .dash-scan-btn.is-loading .spinner { display: inline-block; }
+        .dash-scan-btn.is-loading .btn-text { opacity: 0.8; }
+
+        @keyframes dashSpin { to { transform: rotate(360deg); } }
+
+        /* --- Notification Widget --- */
+        .dash-notif-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: var(--radius-md);
+            transition: all 0.2s;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .dash-notif-item:last-child { border-bottom: none; }
+
+        .dash-notif-item:hover {
+            background: var(--gray-50);
+            transform: translateX(3px);
+        }
+
+        .dash-notif-icon {
+            width: 36px; height: 36px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .dash-notif-icon.type-review { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+        .dash-notif-icon.type-system { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .dash-notif-icon.type-deadline { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .dash-notif-icon.type-approval { background: linear-gradient(135deg, #10b981, #059669); }
+        .dash-notif-icon.type-comment { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+
+        .dash-notif-content { flex: 1; min-width: 0; }
+
+        .dash-notif-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--gray-900);
+            margin-bottom: 0.15rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dash-notif-msg {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .dash-notif-time {
+            font-size: 0.68rem;
+            color: var(--gray-400);
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .dash-notif-unread {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            flex-shrink: 0;
+            animation: dashPulse 2s infinite;
+        }
+
+        @keyframes dashPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+        }
+
+        /* --- Activity Log Widget --- */
+        .dash-activity-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.65rem 0;
+            border-bottom: 1px dashed var(--gray-100);
+            font-size: 0.85rem;
+        }
+
+        .dash-activity-item:last-child { border-bottom: none; }
+
+        .dash-activity-avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .dash-activity-avatar.role-admin { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .dash-activity-avatar.role-lecturer { background: linear-gradient(135deg, #10b981, #059669); }
+        .dash-activity-avatar.role-student { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+
+        .dash-activity-content { flex: 1; min-width: 0; }
+
+        .dash-activity-text {
+            color: var(--gray-700);
+            line-height: 1.4;
+        }
+
+        .dash-activity-text strong { color: var(--gray-900); }
+
+        .dash-activity-meta {
+            font-size: 0.7rem;
+            color: var(--gray-400);
+            margin-top: 0.15rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
     </style>
 </head>
 <body>
@@ -614,9 +777,16 @@ $recentWorks = $recentWorks ?? [];
                     </h2>
                     <p>Berikut ringkasan aktivitas sistem SIMBITA hari ini. Pantau progress mahasiswa dan dosen bimbingan Anda.</p>
                 </div>
-                <div class="dash-welcome-date">
-                    <i class="bi bi-calendar-event"></i>
-                    <?= e(id_date()) ?>
+                <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                    <button type="button" id="btnScanMilestones" class="dash-scan-btn">
+                        <i class="bi bi-bell-fill"></i>
+                        <span class="btn-text">Scan Deadline</span>
+                        <span class="spinner"></span>
+                    </button>
+                    <div class="dash-welcome-date">
+                        <i class="bi bi-calendar-event"></i>
+                        <?= e(id_date()) ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -719,58 +889,117 @@ $recentWorks = $recentWorks ?? [];
                 </div>
             </div>
 
-            <!-- Activity Timeline -->
-            <div class="dash-chart-card">
-                <div class="dash-chart-header">
-                    <h3 class="dash-chart-title">
-                        <i class="bi bi-activity"></i> Aktivitas Terbaru
-                    </h3>
-                </div>
-                <div class="dash-timeline">
-                    <?php
-                    $activities = [];
-                    foreach ($recentWorks as $w) {
-                        $activities[] = [
-                            'title' => 'Tugas: ' . mb_strimwidth($w['title'], 0, 40, '...'),
-                            'user' => $w['student_name'],
-                            'time' => $w['created_at'],
-                            'type' => match($w['status']) {
-                                'completed' => 'success',
-                                'revision' => 'warning',
-                                'draft' => 'stable',
-                                default => 'info'
-                            },
-                            'icon' => match($w['status']) {
-                                'completed' => 'check-circle-fill',
-                                'revision' => 'pencil-fill',
-                                'draft' => 'file-earmark-fill',
-                                default => 'clock-fill'
-                            }
-                        ];
-                    }
-                    $activities = array_slice($activities, 0, 5);
-                    ?>
-                    <?php if (empty($activities)): ?>
-                        <div class="dash-empty" style="padding: 2rem 1rem;">
-                            <div class="dash-empty-icon" style="width: 60px; height: 60px; font-size: 1.75rem;">
-                                <i class="bi bi-inbox"></i>
+            <!-- Grid 2 kolom: Notifikasi + Audit Log -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                
+                <!-- === WIDGET NOTIFIKASI TERBARU === -->
+                <div class="dash-chart-card">
+                    <div class="dash-chart-header">
+                        <h3 class="dash-chart-title">
+                            <i class="bi bi-bell-fill"></i> Notifikasi Terbaru
+                        </h3>
+                        <a href="<?= BASE_URL ?>/notifications" style="font-size: 0.78rem; color: var(--primary-600); text-decoration: none; font-weight: 600;">
+                            Lihat Semua →
+                        </a>
+                    </div>
+                    <div style="max-height: 360px; overflow-y: auto;">
+                        <?php if (empty($recentNotifications)): ?>
+                            <div class="dash-empty" style="padding: 2rem 1rem;">
+                                <div class="dash-empty-icon" style="width: 60px; height: 60px; font-size: 1.75rem;">
+                                    <i class="bi bi-bell-slash"></i>
+                                </div>
+                                <p style="font-size: 0.875rem; margin: 0;">Belum ada notifikasi</p>
                             </div>
-                            <p style="font-size: 0.875rem; margin: 0;">Belum ada aktivitas</p>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($activities as $act): ?>
-                            <div class="dash-timeline-item">
-                                <div class="dash-timeline-dot <?= $act['type'] ?>"></div>
-                                <div class="dash-timeline-content">
-                                    <div class="dash-timeline-title"><?= e($act['title']) ?></div>
-                                    <div class="dash-timeline-time">
-                                        <i class="bi bi-person-fill"></i> <?= e($act['user']) ?>
-                                        • <?= date('d/m H:i', strtotime($act['time'])) ?>
+                        <?php else: ?>
+                            <?php foreach ($recentNotifications as $notif): 
+                                $typeClass = 'type-' . ($notif['type'] ?? 'system');
+                                $typeIcon = match($notif['type'] ?? 'system') {
+                                    'review' => 'pencil-square-fill',
+                                    'deadline' => 'alarm-fill',
+                                    'approval' => 'check-circle-fill',
+                                    'comment' => 'chat-left-text-fill',
+                                    default => 'gear-fill'
+                                };
+                            ?>
+                            <div class="dash-notif-item">
+                                <div class="dash-notif-icon <?= $typeClass ?>">
+                                    <i class="bi bi-<?= $typeIcon ?>"></i>
+                                </div>
+                                <div class="dash-notif-content">
+                                    <div class="dash-notif-title"><?= e($notif['title']) ?></div>
+                                    <div class="dash-notif-msg"><?= e($notif['message']) ?></div>
+                                    <div class="dash-notif-time">
+                                        <?php if (empty($notif['is_read'])): ?>
+                                            <span class="dash-notif-unread"></span>
+                                        <?php endif; ?>
+                                        <i class="bi bi-person-fill"></i>
+                                        <?= e($notif['user_name'] ?? 'System') ?>
+                                        • <?= date('d/m H:i', strtotime($notif['created_at'])) ?>
                                     </div>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- === WIDGET AUDIT LOG === -->
+                <div class="dash-chart-card">
+                    <div class="dash-chart-header">
+                        <h3 class="dash-chart-title">
+                            <i class="bi bi-shield-lock-fill"></i> Audit Log
+                        </h3>
+                        <span style="font-size: 0.72rem; color: var(--gray-500); padding: 0.25rem 0.6rem; background: var(--gray-100); border-radius: var(--radius-full); font-weight: 600;">
+                            <i class="bi bi-clock"></i> Real-time
+                        </span>
+                    </div>
+                    <div style="max-height: 360px; overflow-y: auto;">
+                        <?php if (empty($recentActivities)): ?>
+                            <div class="dash-empty" style="padding: 2rem 1rem;">
+                                <div class="dash-empty-icon" style="width: 60px; height: 60px; font-size: 1.75rem;">
+                                    <i class="bi bi-shield"></i>
+                                </div>
+                                <p style="font-size: 0.875rem; margin: 0;">Belum ada aktivitas</p>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($recentActivities as $log): 
+                                $initials = '';
+                                $nameParts = array_filter(explode(' ', trim($log['user_name'] ?? 'U')));
+                                if (!empty($nameParts)) {
+                                    $initials = strtoupper(substr($nameParts[0], 0, 1));
+                                    if (count($nameParts) > 1) $initials .= strtoupper(substr(end($nameParts), 0, 1));
+                                }
+                                $roleClass = 'role-' . ($log['user_role'] ?? 'student');
+                                
+                                $actionIcon = match($log['action'] ?? '') {
+                                    'login' => '🔓',
+                                    'logout' => '🔒',
+                                    'upload_document' => '📤',
+                                    'review_document' => '✍️',
+                                    'delete' => '🗑️',
+                                    'create' => '➕',
+                                    'update' => '✏️',
+                                    default => '⚙️'
+                                };
+                            ?>
+                            <div class="dash-activity-item">
+                                <div class="dash-activity-avatar <?= $roleClass ?>">
+                                    <?= e($initials) ?>
+                                </div>
+                                <div class="dash-activity-content">
+                                    <div class="dash-activity-text">
+                                        <?= $actionIcon ?> 
+                                        <strong><?= e($log['user_name'] ?? 'System') ?></strong>
+                                        <?= e($log['description'] ?? $log['action']) ?>
+                                    </div>
+                                    <div class="dash-activity-meta">
+                                        <?= e($log['ip_address'] ?? '-') ?> • <?= date('d/m H:i:s', strtotime($log['created_at'])) ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -992,12 +1221,54 @@ $recentWorks = $recentWorks ?? [];
             });
         };
 
+                // ===== SCAN MILESTONES HANDLER =====
+        const initScanButton = () => {
+            const btn = document.getElementById('btnScanMilestones');
+            if (!btn) return;
+
+            btn.addEventListener('click', async () => {
+                if (!confirm('Jalankan scan deadline sekarang?\n\nSistem akan mengirim notifikasi ke mahasiswa & dosen yang memiliki milestone H-7, H-3, atau H-1.')) {
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.classList.add('is-loading');
+
+                const formData = new FormData();
+                formData.append('csrf_token', '<?= e(Csrf::token()) ?>');
+
+                try {
+                    const res = await fetch('<?= BASE_URL ?>/api/milestones/scan', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        alert(`✅ Scan Selesai!\n\n📊 Milestone diproses: ${data.scanned}\n📬 Notifikasi terkirim: ${data.notifications_sent}`);
+                        // Refresh halaman untuk update widget notifikasi
+                        if (data.notifications_sent > 0) {
+                            window.location.reload();
+                        }
+                    } else {
+                        alert('❌ Gagal: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    alert('⚠️ Error jaringan: ' + err.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.classList.remove('is-loading');
+                }
+            });
+        };
+
         // ===== INIT =====
         document.addEventListener('DOMContentLoaded', () => {
             animateCounters();
             initChart();
             staggerCards();
             initAlerts();
+            initScanButton();  // ← TAMBAHKAN INI
         });
     })();
     </script>

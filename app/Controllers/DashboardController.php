@@ -10,6 +10,8 @@ class DashboardController
     {
         Auth::requireRole('admin');
 
+        $db = Database::connection();
+
         $stats = [
             'total_students' => self::countTable('student_profiles'),
             'total_lecturers' => self::countTable('lecturer_profiles'),
@@ -19,6 +21,28 @@ class DashboardController
 
         $recentWorks = AcademicWork::getAllWithDetails();
         $recentWorks = array_slice($recentWorks, 0, 10);
+
+        // Ambil notifikasi terbaru (max 5) untuk widget admin
+        $stmtNotif = $db->prepare('
+            SELECT n.*, u.name AS user_name
+            FROM notifications n
+            LEFT JOIN users u ON n.user_id = u.id
+            ORDER BY n.created_at DESC
+            LIMIT 5
+        ');
+        $stmtNotif->execute();
+        $recentNotifications = $stmtNotif->fetchAll();
+
+        // Ambil audit log terbaru (max 8) untuk widget admin
+        $stmtLog = $db->prepare('
+            SELECT al.*, u.name AS user_name, u.role AS user_role
+            FROM activity_logs al
+            LEFT JOIN users u ON al.user_id = u.id
+            ORDER BY al.created_at DESC
+            LIMIT 8
+        ');
+        $stmtLog->execute();
+        $recentActivities = $stmtLog->fetchAll();
 
         require dirname(__DIR__) . '/Views/admin/dashboard.php';
     }
@@ -45,6 +69,11 @@ class DashboardController
 
         $myStudents = AcademicWork::getByLecturerId((int)$lecturer['id']);
         $pendingReviews = self::getPendingReviewsForLecturer((int)$lecturer['id']);
+        
+        // Widget Deadline Mahasiswa Bimbingan (max 5)
+        $upcomingMilestones = class_exists('MilestoneController') 
+            ? MilestoneController::getUpcomingForLecturer((int)$lecturer['id'], 5) 
+            : [];
 
         require dirname(__DIR__) . '/Views/lecturer/dashboard.php';
     }
@@ -72,6 +101,11 @@ class DashboardController
         $myWork = AcademicWork::getByStudentId((int)$student['id']);
         $myDocuments = self::getDocumentsForWork($myWork['id'] ?? 0);
         $myMilestones = self::getMilestonesForWork($myWork['id'] ?? 0);
+        
+        // Widget Deadline Mendekat (max 3 milestone)
+        $upcomingMilestones = class_exists('MilestoneController') 
+            ? MilestoneController::getUpcomingForStudent((int)$student['id'], 3) 
+            : [];
 
         require dirname(__DIR__) . '/Views/student/dashboard.php';
     }

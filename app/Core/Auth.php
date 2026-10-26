@@ -27,6 +27,11 @@ class Auth
         return $_SESSION[self::SESSION_KEY]['role'] ?? null;
     }
 
+    public static function user(): ?array
+    {
+        return $_SESSION[self::SESSION_KEY] ?? null;
+    }
+
     public static function requireRole(string $role): void
     {
         if (!self::check() || self::role() !== $role) {

@@ -1,14 +1,6 @@
 <?php
 declare(strict_types=1);
 session_start(); 
-
-// =====================================================================
-// 0. ERROR REPORTING (Development Mode)
-// =====================================================================
-error_reporting(E_ALL);
-ini_set('display_errors', '1');
-// ... (sisa kode index.php biarkan sama persis seperti yang Anda kirim)
-
 /**
  * =====================================================================
  * SIMBITA - MAIN ENTRY POINT
@@ -74,6 +66,7 @@ try {
     require_once dirname(__DIR__) . '/app/Controllers/DocumentController.php';
     require_once dirname(__DIR__) . '/app/Controllers/ReviewController.php';
     require_once dirname(__DIR__) . '/app/Controllers/CompareController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/MilestoneController.php';     // ← TAMBAHKAN
     require_once dirname(__DIR__) . '/app/Controllers/NotificationController.php';
 } catch (Throwable $e) {
     http_response_code(500);
@@ -387,45 +380,47 @@ try {
             })(),
         
         // =================================================================
-        // REVIEW API (Lecturer Only)
+        // REVIEW & COMMENTS API (Tindak Lanjut Revisi + Anotasi)
         // =================================================================
         
-        // Endpoint untuk mengambil anotasi/komentar (GET)
+        // GET /api/comments?version_id=X — Ambil semua anotasi per versi
         $path === '/api/comments' && $method === 'GET' 
             => (function() {
                 requireAuth();
                 ReviewController::getComments();
             })(),
 
-        // Endpoint untuk menyimpan anotasi baru saat klik PDF (POST)
+        // POST /api/comments/save — Simpan anotasi baru di PDF
         $path === '/api/comments/save' && $method === 'POST' 
             => (function() {
                 requireRole('lecturer', 'admin');
                 ReviewController::saveAnnotation();
             })(),
 
-        // Endpoint untuk submit keputusan final & checklist (POST)
+        // POST /api/comments/resolve — Tandai komentar selesai/belum (FITUR BARU)
+        $path === '/api/comments/resolve' && $method === 'POST' 
+            => (function() {
+                requireAuth();
+                ReviewController::resolveComment();
+            })(),
+
+        // POST /api/reviews/decide — Submit keputusan final + checklist
         $path === '/api/reviews/decide' && $method === 'POST' 
             => (function() {
                 requireRole('lecturer', 'admin');
                 ReviewController::decide();
             })(),
-            
-        // =================================================================
-        // COMMENTS API (Auth Required)
-        // =================================================================
-        $path === '/api/comments' && $method === 'GET' 
-            => (function() {
-                requireAuth();
-                CompareController::getComments();
-            })(),
         
-        $path === '/api/comments/resolve' && $method === 'POST' 
+        // =================================================================
+        // MILESTONE API (Admin Only for scan)
+        // =================================================================
+        $path === '/api/milestones/scan' && $method === 'POST' 
             => (function() {
-                requireAuth();
-                CompareController::resolveComment();
+                requireRole('admin');
+                MilestoneController::scanDeadlines();
             })(),
-        
+
+        // =================================================================
         // =================================================================
         // NOTIFICATIONS (Auth Required)
         // =================================================================
@@ -433,6 +428,12 @@ try {
             => (function() {
                 requireAuth();
                 NotificationController::showNotifications();
+            })(),
+        
+        $path === '/api/notifications/count' && $method === 'GET' 
+            => (function() {
+                requireAuth();
+                NotificationController::getUnreadCount();
             })(),
         
         $path === '/api/notifications/read-all' && $method === 'POST' 
