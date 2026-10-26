@@ -204,7 +204,7 @@ class StudentController
         
         if (!$student) redirect('/student/dashboard');
         
-        // History lengkap dengan status review terbaru
+        // 1. History lengkap dengan status review terbaru
         $stmt = $db->prepare('
             SELECT dv.*, d.academic_work_id, dt.name as type_name, dt.code as type_code,
                    aw.title as work_title,
@@ -222,6 +222,26 @@ class StudentController
         $stmt->execute([$student['id']]);
         $history = $stmt->fetchAll();
         
+        // 2. AMBIL DATA ANOTASI UNTUK SETIAP VERSI DOKUMEN (KRUSIAL!)
+        $annotationsMap = [];
+        if (!empty($history)) {
+            $versionIds = array_column($history, 'id');
+            $placeholders = implode(',', array_fill(0, count($versionIds), '?'));
+            
+            $stmt = $db->prepare("
+                SELECT rc.*, r.document_version_id 
+                FROM review_comments rc
+                JOIN reviews r ON rc.review_id = r.id
+                WHERE r.document_version_id IN ($placeholders)
+                ORDER BY rc.page_number ASC, rc.created_at ASC
+            ");
+            $stmt->execute($versionIds);
+            
+            foreach ($stmt->fetchAll() as $ann) {
+                $annotationsMap[$ann['document_version_id']][] = $ann;
+            }
+        }
+        
+        // 3. Kirim SEMUA variabel ke view
         require dirname(__DIR__) . '/Views/student/history.php';
     }
-}
