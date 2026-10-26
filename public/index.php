@@ -389,24 +389,28 @@ try {
         // =================================================================
         // REVIEW API (Lecturer Only)
         // =================================================================
-        $path === '/api/reviews/comment' && $method === 'POST' 
+        
+        // Endpoint untuk mengambil anotasi/komentar (GET)
+        $path === '/api/comments' && $method === 'GET' 
+            => (function() {
+                requireAuth();
+                ReviewController::getComments();
+            })(),
+
+        // Endpoint untuk menyimpan anotasi baru saat klik PDF (POST)
+        $path === '/api/comments/save' && $method === 'POST' 
             => (function() {
                 requireRole('lecturer', 'admin');
-                ReviewController::addComment();
+                ReviewController::saveAnnotation();
             })(),
-        
-        $path === '/api/reviews/checklist' && $method === 'POST' 
-            => (function() {
-                requireRole('lecturer', 'admin');
-                ReviewController::saveChecklist();
-            })(),
-        
+
+        // Endpoint untuk submit keputusan final & checklist (POST)
         $path === '/api/reviews/decide' && $method === 'POST' 
             => (function() {
                 requireRole('lecturer', 'admin');
                 ReviewController::decide();
             })(),
-        
+            
         // =================================================================
         // COMMENTS API (Auth Required)
         // =================================================================

@@ -4,222 +4,253 @@ declare(strict_types=1);
 class ReviewController
 {
     /**
-     * Tampilkan halaman review
+     * API Endpoint: Simpan Anotasi/Komentar pada Halaman PDF
+     * Route: POST /api/comments/save
      */
-    public static function showReview(): void
+    public static function saveAnnotation(): void
     {
-        Auth::requireRole('lecturer');
-        
-        $academicWorkId = (int)($_GET['id'] ?? 0);
-        
-        if (!$academicWorkId) {
-            redirect('/lecturer/dashboard');
-        }
-
-        $work = AcademicWork::getWithSupervisors($academicWorkId);
-        
-        if (!$work) {
-            $_SESSION['flash_error'] = 'Tugas akhir tidak ditemukan';
-            redirect('/lecturer/dashboard');
-        }
-
-        // Ambil dokumen
-        $db = Database::connection();
-        $stmt = $db->prepare('
-            SELECT d.*, dt.name as type_name, dt.code as type_code,
-                   dv.id as version_id, dv.version_number, dv.original_filename,
-                   dv.file_path, dv.student_note
-            FROM documents d
-            JOIN document_types dt ON d.document_type_id = dt.id
-            LEFT JOIN document_versions dv ON d.id = dv.document_id AND dv.is_current = 1
-            WHERE d.academic_work_id = ?
-            ORDER BY dt.sort_order
-        ');
-        $stmt->execute([$academicWorkId]);
-        $documents = $stmt->fetchAll();
-
-        require dirname(__DIR__) . '/Views/lecturer/review.php';
-    }
-
-    /**
-     * Tampilkan history review
-     */
-    public static function showHistory(): void
-    {
-        Auth::requireRole('lecturer');
-        
-        $userId = Auth::id();
-        
-        $db = Database::connection();
-        $stmt = $db->prepare('
-            SELECT r.*, dv.original_filename, aw.title as work_title,
-                   u.name as student_name, r.created_at
-            FROM reviews r
-            JOIN document_versions dv ON r.document_version_id = dv.id
-            JOIN documents d ON dv.document_id = d.id
-            JOIN academic_works aw ON d.academic_work_id = aw.id
-            JOIN student_profiles sp ON aw.student_id = sp.id
-            JOIN users u ON sp.user_id = u.id
-            WHERE r.reviewer_id = ?
-            ORDER BY r.created_at DESC
-            LIMIT 50
-        ');
-        $stmt->execute([$userId]);
-        $history = $stmt->fetchAll();
-
-        require dirname(__DIR__) . '/Views/lecturer/history.php';
-    }
-
-    /**
-     * Tambah komentar
-     */
-    public static function addComment(): void
-    {
-        Auth::requireRole('lecturer');
+        Auth::requireRole('lecturer', 'admin');
         
         $csrfToken = $_POST['csrf_token'] ?? '';
         if (!Csrf::verify($csrfToken)) {
-            json_response(['error' => 'Token tidak valid'], 419);
+            json_response(['error' => 'Token keamanan tidak valid'], 419);
         }
 
-        $reviewId = (int)($_POST['review_id'] ?? 0);
-        $pageNumber = (int)($_POST['page_number'] ?? 1);
-        $positionX = (float)($_POST['position_x'] ?? 0);
-        $positionY = (float)($_POST['position_y'] ?? 0);
-        $commentText = trim($_POST['comment_text'] ?? '');
-        $priority = $_POST['priority'] ?? 'important';
+        // Validasi input dasar
+        $versionId = (int)($_POST['version_id'] ?? 0);
+        $page      = (int)($_POST['page_number'] ?? 0);
+        $xPct      = (float)($_POST['pos_x_pct'] ?? 0);
+        $yPct      = (float)($_POST['pos_y_pct'] ?? 0);
+        $comment   = trim($_POST['comment'] ?? '');
+        $priority  = $_POST['priority'] ?? 'important';
 
-        if (!$reviewId || empty($commentText)) {
-            json_response(['error' => 'Data tidak lengkap'], 400);
+        if ($versionId <= 0 || $page <= 0 || empty($comment)) {
+            json_response(['error' => 'Data anotasi tidak lengkap'], 400);
         }
 
-        $db = Database::connection();
-        $stmt = $db->prepare('
-            INSERT INTO review_comments 
-            (review_id, page_number, position_x, position_y, comment_text, priority)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ');
-        $stmt->execute([
-            $reviewId,
-            $pageNumber,
-            $positionX,
-            $positionY,
-            $commentText,
-            $priority
-        ]);
-
-        json_response(['success' => true, 'message' => 'Komentar berhasil ditambahkan']);
-    }
-
-    /**
-     * Simpan checklist review
-     */
-    public static function saveChecklist(): void
-    {
-        Auth::requireRole('lecturer');
-        
-        $csrfToken = $_POST['csrf_token'] ?? '';
-        if (!Csrf::verify($csrfToken)) {
-            json_response(['error' => 'Token tidak valid'], 419);
+        // Validasi prioritas agar aman dari injeksi
+        $allowedPriorities = ['minor', 'important', 'mandatory'];
+        if (!in_array($priority, $allowedPriorities, true)) {
+            $priority = 'important';
         }
-
-        $reviewId = (int)($_POST['review_id'] ?? 0);
-        $checklistData = $_POST['checklist'] ?? [];
-
-        if (!$reviewId || empty($checklistData)) {
-            json_response(['error' => 'Data tidak lengkap'], 400);
-        }
-
-        $db = Database::connection();
-        $db->beginTransaction();
 
         try {
-            foreach ($checklistData as $itemId => $result) {
-                $stmt = $db->prepare('
-                    INSERT INTO review_checklist_results 
-                    (review_id, checklist_item_id, result, note)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE result = ?, note = ?
-                ');
-                $stmt->execute([
-                    $reviewId,
-                    $itemId,
-                    $result['result'],
-                    $result['note'] ?? null,
-                    $result['result'],
-                    $result['note'] ?? null
-                ]);
+            $db = Database::connection();
+            
+            // Cek apakah sudah ada review aktif untuk versi dokumen ini
+            // Jika belum ada, buat record review baru dengan status 'in_review'
+            $stmt = $db->prepare('SELECT id FROM reviews WHERE document_version_id = ? AND reviewer_id = ? ORDER BY created_at DESC LIMIT 1');
+            $stmt->execute([$versionId, Auth::id()]);
+            $review = $stmt->fetch();
+
+            if (!$review) {
+                $stmt = $db->prepare('INSERT INTO reviews (document_version_id, reviewer_id, review_status, created_at) VALUES (?, ?, ?, NOW())');
+                $stmt->execute([$versionId, Auth::id(), 'in_review']);
+                $reviewId = (int)$db->lastInsertId();
+            } else {
+                $reviewId = (int)$review['id'];
             }
 
-            $db->commit();
-            json_response(['success' => true, 'message' => 'Checklist berhasil disimpan']);
+            // Simpan komentar/anotasi ke tabel review_comments
+            $stmt = $db->prepare('
+                INSERT INTO review_comments 
+                (review_id, page_number, position_x, position_y, comment_text, priority, is_resolved, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 0, NOW())
+            ');
+            $stmt->execute([$reviewId, $page, $xPct, $yPct, $comment, $priority]);
+
+            json_response([
+                'success' => true, 
+                'id' => (int)$db->lastInsertId(),
+                'message' => 'Anotasi berhasil disimpan'
+            ]);
+
         } catch (Exception $e) {
-            $db->rollBack();
-            json_response(['error' => 'Gagal menyimpan checklist'], 500);
+            error_log('[Save Annotation Error] ' . $e->getMessage());
+            json_response(['error' => 'Gagal menyimpan anotasi ke database'], 500);
         }
     }
 
     /**
-     * Keputusan review (approve/reject/needs revision)
+     * API Endpoint: Ambil Semua Anotasi untuk Suatu Versi Dokumen
+     * Route: GET /api/comments?version_id=X
+     */
+    public static function getComments(): void
+    {
+        Auth::requireRole('lecturer', 'student', 'admin');
+        
+        $versionId = (int)($_GET['version_id'] ?? 0);
+        if (!$versionId) {
+            json_response(['error' => 'Version ID required'], 400);
+        }
+
+        try {
+            $db = Database::connection();
+            
+            // Verifikasi hak akses: Hanya pemilik TA, pembimbing, atau admin yang boleh lihat anotasi
+            $canAccess = false;
+            $userId = Auth::id();
+            $role = Auth::role();
+
+            if ($role === 'admin') {
+                $canAccess = true;
+            } elseif ($role === 'lecturer') {
+                $stmt = $db->prepare('
+                    SELECT 1 FROM supervision_assignments sa
+                    JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id
+                    JOIN documents d ON dv.document_id = d.id 
+                    JOIN document_versions dv ON dv.id = ?
+                    WHERE sa.academic_work_id = d.academic_work_id 
+                      AND lp.user_id = ? AND sa.is_active = 1 LIMIT 1
+                ');
+                $stmt->execute([$versionId, $userId]);
+                $canAccess = (bool)$stmt->fetch();
+            } elseif ($role === 'student') {
+                 $stmt = $db->prepare('
+                    SELECT 1 FROM academic_works aw
+                    JOIN student_profiles sp ON aw.student_id = sp.id
+                    JOIN documents d ON d.academic_work_id = aw.id
+                    JOIN document_versions dv ON dv.document_id = d.id
+                    WHERE dv.id = ? AND sp.user_id = ? LIMIT 1
+                ');
+                $stmt->execute([$versionId, $userId]);
+                $canAccess = (bool)$stmt->fetch();
+            }
+
+            if (!$canAccess) {
+                json_response(['error' => 'Akses ditolak'], 403);
+            }
+
+            // Ambil data anotasi
+            $stmt = $db->prepare('
+                SELECT rc.id, rc.page_number, rc.position_x as pos_x_pct, rc.position_y as pos_y_pct, 
+                       rc.comment_text as comment, rc.priority, rc.created_at,
+                       u.name as author_name
+                FROM review_comments rc
+                JOIN reviews r ON rc.review_id = r.id
+                JOIN users u ON r.reviewer_id = u.id
+                WHERE r.document_version_id = ?
+                ORDER BY rc.page_number ASC, rc.created_at ASC
+            ');
+            $stmt->execute([$versionId]);
+            
+            json_response([
+                'success' => true,
+                'annotations' => $stmt->fetchAll()
+            ]);
+
+        } catch (Exception $e) {
+            json_response(['error' => 'Gagal mengambil data anotasi'], 500);
+        }
+    }
+
+    /**
+     * API Endpoint: Submit Keputusan Final Review & Checklist
+     * Route: POST /api/reviews/decide
      */
     public static function decide(): void
     {
-        Auth::requireRole('lecturer');
+        Auth::requireRole('lecturer', 'admin');
         
         $csrfToken = $_POST['csrf_token'] ?? '';
         if (!Csrf::verify($csrfToken)) {
             json_response(['error' => 'Token tidak valid'], 419);
         }
 
-        $reviewId = (int)($_POST['review_id'] ?? 0);
-        $decision = $_POST['decision'] ?? ''; // approved, rejected, needs_revision
-        $generalNote = trim($_POST['general_note'] ?? '');
+        $versionId = (int)($_POST['document_version_id'] ?? 0);
+        $decision  = $_POST['decision'] ?? '';
+        $note      = trim($_POST['general_note'] ?? '');
+        $checklist = $_POST['checklist'] ?? []; // Array dari checklist items
 
-        if (!$reviewId || !in_array($decision, ['approved', 'rejected', 'needs_revision'])) {
-            json_response(['error' => 'Data tidak valid'], 400);
+        if ($versionId <= 0 || !in_array($decision, ['approved', 'needs_revision', 'rejected'], true)) {
+            json_response(['error' => 'Data keputusan tidak valid'], 400);
         }
 
-        $db = Database::connection();
-        
-        // Update review status
-        $stmt = $db->prepare('
-            UPDATE reviews 
-            SET review_status = ?, general_note = ?, reviewed_at = NOW()
-            WHERE id = ?
-        ');
-        $stmt->execute([$decision, $generalNote, $reviewId]);
+        try {
+            $db = Database::connection();
+            $db->beginTransaction();
 
-        // Ambil info dokumen untuk notifikasi
-        $stmt = $db->prepare('
-            SELECT dv.document_id, d.academic_work_id, aw.student_id
-            FROM reviews r
-            JOIN document_versions dv ON r.document_version_id = dv.id
-            JOIN documents d ON dv.document_id = d.id
-            JOIN academic_works aw ON d.academic_work_id = aw.id
-            WHERE r.id = ?
-        ');
-        $stmt->execute([$reviewId]);
-        $info = $stmt->fetch();
+            // 1. Cari atau Buat Record Review
+            $stmt = $db->prepare('SELECT id FROM reviews WHERE document_version_id = ? AND reviewer_id = ? ORDER BY created_at DESC LIMIT 1');
+            $stmt->execute([$versionId, Auth::id()]);
+            $review = $stmt->fetch();
 
-        if ($info) {
-            // Buat notifikasi untuk mahasiswa
-            $statusText = match($decision) {
-                'approved' => 'disetujui',
-                'rejected' => 'ditolak',
-                'needs_revision' => 'perlu revisi',
-            };
+            if (!$review) {
+                $stmt = $db->prepare('INSERT INTO reviews (document_version_id, reviewer_id, review_status, created_at) VALUES (?, ?, ?, NOW())');
+                $stmt->execute([$versionId, Auth::id(), 'pending']);
+                $reviewId = (int)$db->lastInsertId();
+            } else {
+                $reviewId = (int)$review['id'];
+            }
 
-            Notification::create(
-                (int)$info['student_id'],
-                'Hasil Review Dokumen',
-                sprintf('Dokumen Anda telah direview dan %s. Catatan: %s', $statusText, $generalNote),
-                'review',
-                'reviews',
-                $reviewId,
-                '/student/dashboard'
-            );
+            // 2. Update Status Review & Catatan Umum
+            $stmt = $db->prepare('
+                UPDATE reviews 
+                SET review_status = ?, general_note = ?, reviewed_at = NOW(), updated_at = NOW() 
+                WHERE id = ?
+            ');
+            $stmt->execute([$decision, $note, $reviewId]);
+
+            // 3. Simpan/Update Hasil Checklist
+            if (!empty($checklist) && is_array($checklist)) {
+                // Hapus hasil checklist lama untuk review ini agar bersih
+                $db->prepare('DELETE FROM review_checklist_results WHERE review_id = ?')->execute([$reviewId]);
+
+                $stmt = $db->prepare('
+                    INSERT INTO review_checklist_results (review_id, checklist_item_id, result, note, created_at)
+                    VALUES (?, ?, ?, ?, NOW())
+                ');
+                
+                foreach ($checklist as $itemId => $data) {
+                    $result = $data['result'] ?? 'pending';
+                    $itemNote = $data['note'] ?? null;
+                    
+                    // Pastikan result valid sesuai ENUM di database
+                    if (!in_array($result, ['pending', 'complete', 'incomplete', 'not_applicable'], true)) {
+                        $result = 'pending';
+                    }
+
+                    $stmt->execute([$reviewId, (int)$itemId, $result, $itemNote]);
+                }
+            }
+
+            // 4. Kirim Notifikasi ke Mahasiswa
+            $stmt = $db->prepare('
+                SELECT sp.user_id FROM document_versions dv
+                JOIN documents d ON dv.document_id = d.id
+                JOIN academic_works aw ON d.academic_work_id = aw.id
+                JOIN student_profiles sp ON aw.student_id = sp.id
+                WHERE dv.id = ? LIMIT 1
+            ');
+            $stmt->execute([$versionId]);
+            $student = $stmt->fetch();
+
+            if ($student) {
+                $statusLabel = match($decision) {
+                    'approved' => 'Disetujui',
+                    'needs_revision' => 'Perlu Revisi',
+                    'rejected' => 'Ditolak',
+                    default => 'Direview'
+                };
+
+                Notification::create(
+                    (int)$student['user_id'],
+                    "Dokumen Anda Telah {$statusLabel}",
+                    "Dosen pembimbing telah menyelesaikan review dokumen Anda dengan keputusan: {$statusLabel}. Silakan cek detailnya.",
+                    'review',
+                    'document_versions',
+                    $versionId,
+                    '/student/history'
+                );
+            }
+
+            $db->commit();
+            json_response(['success' => true, 'message' => 'Keputusan review berhasil disimpan']);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log('[Decide Review Error] ' . $e->getMessage());
+            json_response(['error' => 'Gagal memproses keputusan review'], 500);
         }
-
-        json_response(['success' => true, 'message' => 'Keputusan berhasil disimpan']);
     }
 }

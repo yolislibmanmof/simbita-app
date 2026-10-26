@@ -39,6 +39,8 @@ class LecturerController
         }
 
         $db = Database::connection();
+        
+        // 1. Ambil dokumen versi saat ini (untuk PDF Viewer & Anotasi)
         $stmt = $db->prepare('
             SELECT d.*, dt.name as type_name, dt.code as type_code,
                    dv.id as version_id, dv.version_number, dv.original_filename,
@@ -52,6 +54,48 @@ class LecturerController
         $stmt->execute([$workId]);
         $documents = $stmt->fetchAll();
 
+        // 2. Inisialisasi variabel Checklist & Results (Wajib ada agar view tidak error)
+        $currentDoc = !empty($documents) ? $documents[0] : null;
+        $checklistItems = [];
+        $checklistResults = [];
+        $reviewId = null;
+
+        if ($currentDoc) {
+            // Ambil checklist items berdasarkan jenis dokumen
+            $stmt = $db->prepare('
+                SELECT * FROM checklist_items 
+                WHERE document_type_id = ? AND is_active = 1 
+                ORDER BY item_order ASC
+            ');
+            $stmt->execute([$currentDoc['document_type_id']]);
+            $checklistItems = $stmt->fetchAll();
+
+            // Cek apakah sudah ada review aktif untuk versi dokumen ini
+            $stmt = $db->prepare('
+                SELECT id FROM reviews 
+                WHERE document_version_id = ? AND reviewer_id = ? 
+                ORDER BY created_at DESC LIMIT 1
+            ');
+            $stmt->execute([$currentDoc['version_id'], Auth::id()]);
+            $activeReview = $stmt->fetch();
+
+            if ($activeReview) {
+                $reviewId = (int)$activeReview['id'];
+                
+                // Ambil hasil checklist yang sudah disimpan sebelumnya
+                $stmt = $db->prepare('
+                    SELECT checklist_item_id, result, note 
+                    FROM review_checklist_results 
+                    WHERE review_id = ?
+                ');
+                $stmt->execute([$reviewId]);
+                foreach ($stmt->fetchAll() as $res) {
+                    $checklistResults[$res['checklist_item_id']] = $res;
+                }
+            }
+        }
+
+        // Kirim semua variabel ke view
         require dirname(__DIR__) . '/Views/lecturer/review.php';
     }
 

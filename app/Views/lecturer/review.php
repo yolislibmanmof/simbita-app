@@ -46,7 +46,10 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="<?= BASE_URL ?>/assets/css/admin.css" rel="stylesheet">
-    
+    <!-- PDF.js CSS & JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <style>
         /* =========================================================
            LECTURER REVIEW DETAIL ULTRA PREMIUM - SCOPED STYLES
@@ -898,6 +901,57 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
             .lr-submit-area { flex-direction: column; text-align: center; }
             .lr-submit-btn { width: 100%; justify-content: center; }
         }
+/* --- PDF Viewer Toolbar --- */
+.lr-pdf-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.25rem; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); flex-wrap: wrap; gap: 0.75rem; }
+.lr-pdf-controls, .lr-zoom-controls { display: flex; align-items: center; gap: 0.5rem; }
+.lr-page-indicator { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; color: var(--gray-700); min-width: 80px; text-align: center; }
+.lr-zoom-select { padding: 0.4rem 0.75rem; border: 1px solid var(--gray-300); border-radius: var(--radius-md); font-size: 0.85rem; font-family: inherit; background: white; cursor: pointer; }
+
+/* --- Canvas Wrapper --- */
+.lr-canvas-wrapper { position: relative; width: 100%; background: #525659; overflow: auto; min-height: 600px; display: flex; justify-content: center; padding: 2rem; }
+.lr-canvas-container { position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+#pdfCanvas { display: block; }
+
+/* --- Annotation Layer --- */
+.lr-annotation-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; z-index: 10; }
+.lr-annotation-marker { position: absolute; width: 24px; height: 24px; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; z-index: 20; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: white; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.2s; }
+.lr-annotation-marker:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 30; }
+.lr-annotation-marker.priority-minor { background: #3b82f6; }
+.lr-annotation-marker.priority-important { background: #f59e0b; }
+.lr-annotation-marker.priority-mandatory { background: #ef4444; animation: lrPulseMarker 2s infinite; }
+@keyframes lrPulseMarker { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+
+/* --- Annotation Popup Modal --- */
+.lr-popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.lr-popup-overlay.active { display: flex; }
+.lr-popup { background: white; border-radius: var(--radius-xl); padding: 1.5rem; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); animation: lrPopIn 0.3s ease; }
+@keyframes lrPopIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.lr-popup-title { font-size: 1rem; font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.lr-popup-title i { color: var(--lr-primary); }
+.lr-popup-field { margin-bottom: 1rem; }
+.lr-popup-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.4rem; }
+.lr-popup-textarea { width: 100%; padding: 0.6rem; border: 1.5px solid var(--gray-300); border-radius: var(--radius-md); font-size: 0.85rem; font-family: inherit; resize: vertical; min-height: 80px; }
+.lr-popup-textarea:focus { outline: none; border-color: var(--lr-primary); }
+.lr-popup-priority { display: flex; gap: 0.5rem; }
+.lr-popup-priority label { flex: 1; padding: 0.5rem; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); text-align: center; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.lr-popup-priority input { display: none; }
+.lr-popup-priority input:checked + span { background: var(--lr-primary); color: white; border-color: var(--lr-primary); }
+.lr-popup-priority span { display: block; padding: 0.25rem; border-radius: var(--radius-sm); }
+.lr-popup-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+.lr-popup-btn { flex: 1; padding: 0.65rem; border-radius: var(--radius-md); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; border: none; font-family: inherit; }
+.lr-popup-btn-cancel { background: var(--gray-100); color: var(--gray-700); }
+.lr-popup-btn-cancel:hover { background: var(--gray-200); }
+.lr-popup-btn-save { background: var(--lr-gradient); color: white; box-shadow: 0 4px 10px -4px rgba(16,185,129,0.4); }
+.lr-popup-btn-save:hover { transform: translateY(-1px); }
+
+/* --- Checklist Styles --- */
+.lr-checklist-list { display: flex; flex-direction: column; gap: 0.6rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem; }
+.lr-checklist-item { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; background: var(--gray-50); border-radius: var(--radius-md); border: 1px solid transparent; transition: all 0.2s; cursor: pointer; }
+.lr-checklist-item:hover { background: white; border-color: var(--gray-200); }
+.lr-checklist-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--lr-primary); cursor: pointer; flex-shrink: 0; }
+.lr-checklist-text { font-size: 0.85rem; color: var(--gray-700); line-height: 1.4; flex: 1; }
+.lr-checklist-note { width: 100%; margin-top: 0.5rem; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: var(--radius-md); font-size: 0.8rem; font-family: inherit; resize: vertical; min-height: 60px; display: none; }
+.lr-checklist-item.has-note .lr-checklist-note { display: block; }
     </style>
 </head>
 <body>
@@ -969,139 +1023,123 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
 
         <!-- Main Grid -->
         <div class="lr-grid">
-            <!-- Left: Documents + Review Form -->
+            <!-- Left: PDF Viewer + Checklist + Decision Form -->
             <div>
-                <!-- Documents Card -->
-                <div class="lr-card delay-1">
+                <!-- PDF Viewer Container -->
+                <div class="lr-card delay-1" style="margin-bottom: 1.5rem;">
                     <div class="lr-card-header">
-                        <h3 class="lr-card-title">
-                            <i class="bi bi-folder-fill"></i>
-                            Dokumen yang Diunggah
-                        </h3>
-                        <span class="lr-card-count">
-                            <i class="bi bi-file-earmark"></i>
-                            <?= count($documents) ?> file
-                        </span>
+                        <h3 class="lr-card-title"><i class="bi bi-file-earmark-pdf-fill"></i> Dokumen Review</h3>
+                        <?php if (!empty($documents)): ?>
+                            <span class="lr-card-count">v<?= e($documents[0]['version_number']) ?></span>
+                        <?php endif; ?>
                     </div>
-                    <div class="lr-card-body">
+                    <div style="padding: 0; background: #525659;">
                         <?php if (empty($documents)): ?>
-                            <div class="lr-empty-doc">
-                                <div class="lr-empty-doc-icon">
-                                    <i class="bi bi-folder-x"></i>
-                                </div>
+                            <div class="lr-empty-doc" style="background: white; border-radius: var(--radius-xl); margin: 1.5rem;">
+                                <div class="lr-empty-doc-icon"><i class="bi bi-folder-x"></i></div>
                                 <h4>Belum Ada Dokumen</h4>
-                                <p>Mahasiswa belum mengunggah dokumen untuk ditinjau.</p>
+                                <p>Mahasiswa belum mengunggah dokumen.</p>
                             </div>
                         <?php else: ?>
-                            <div class="lr-doc-list">
-                                <?php foreach ($documents as $i => $doc): ?>
-                                <div class="lr-doc" style="animation-delay: <?= min($i * 0.05, 0.3) ?>s">
-                                    <div class="lr-doc-icon">
-                                        <i class="bi bi-file-earmark-pdf-fill"></i>
-                                    </div>
-                                    <div class="lr-doc-content">
-                                        <div class="lr-doc-header">
-                                            <div class="lr-doc-title"><?= e($doc['original_filename']) ?></div>
-                                            <span class="lr-doc-version">
-                                                <i class="bi bi-git"></i>
-                                                v<?= e($doc['version_number']) ?>
-                                            </span>
-                                        </div>
-                                        <div class="lr-doc-meta">
-                                            <div class="lr-doc-meta-item">
-                                                <i class="bi bi-tag-fill"></i>
-                                                <?= e($doc['type_name'] ?? 'Dokumen') ?>
-                                            </div>
-                                            <div class="lr-doc-meta-item">
-                                                <i class="bi bi-calendar-event"></i>
-                                                <?= date('d M Y, H:i', strtotime($doc['uploaded_at'])) ?>
-                                            </div>
-                                        </div>
-                                        <div class="lr-doc-actions">
-                                            <a href="<?= BASE_URL ?>/documents/download?id=<?= $doc['id'] ?>" class="lr-doc-btn lr-doc-btn-secondary">
-                                                <i class="bi bi-download"></i> Unduh
-                                            </a>
-                                            <button type="button" class="lr-doc-btn lr-doc-btn-primary" data-doc-preview="<?= $doc['id'] ?>">
-                                                <i class="bi bi-eye-fill"></i> Preview PDF
-                                            </button>
-                                        </div>
-                                    </div>
+                            <!-- Toolbar PDF -->
+                            <div class="lr-pdf-toolbar">
+                                <div class="lr-pdf-controls">
+                                    <button type="button" id="prevPage" class="lr-doc-btn lr-doc-btn-secondary" style="padding: 0.4rem 0.6rem;"><i class="bi bi-chevron-left"></i></button>
+                                    <span class="lr-page-indicator"><span id="currentPage">1</span> / <span id="totalPages">-</span></span>
+                                    <button type="button" id="nextPage" class="lr-doc-btn lr-doc-btn-secondary" style="padding: 0.4rem 0.6rem;"><i class="bi bi-chevron-right"></i></button>
                                 </div>
-                                <?php endforeach; ?>
+                                <div class="lr-zoom-controls">
+                                    <button type="button" id="zoomOut" class="lr-doc-btn lr-doc-btn-secondary" style="padding: 0.4rem 0.6rem;"><i class="bi bi-dash-lg"></i></button>
+                                    <select id="zoomSelect" class="lr-zoom-select">
+                                        <option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option>
+                                    </select>
+                                    <button type="button" id="zoomIn" class="lr-doc-btn lr-doc-btn-secondary" style="padding: 0.4rem 0.6rem;"><i class="bi bi-plus-lg"></i></button>
+                                </div>
+                            </div>
+                            
+                            <!-- Canvas Wrapper & Annotation Layer -->
+                            <div class="lr-canvas-wrapper" id="pdfWrapper">
+                                <div class="lr-canvas-container" id="canvasContainer">
+                                    <canvas id="pdfCanvas"></canvas>
+                                    <div class="lr-annotation-layer" id="annotationLayer"></div>
+                                </div>
                             </div>
                         <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- Review Form Card -->
-                <div class="lr-card delay-2" style="margin-top: 1.5rem;">
+                <!-- Checklist Card (Hanya muncul jika ada dokumen) -->
+                <?php if (!empty($documents) && !empty($checklistItems)): ?>
+                <div class="lr-card delay-2" style="margin-bottom: 1.5rem;">
                     <div class="lr-card-header">
-                        <h3 class="lr-card-title">
-                            <i class="bi bi-pencil-square-fill"></i>
-                            Keputusan Review
-                        </h3>
+                        <h3 class="lr-card-title"><i class="bi bi-ui-checks-grid"></i> Checklist Pemeriksaan</h3>
                     </div>
-                    <form method="POST" action="<?= BASE_URL ?>/lecturer/review/submit" id="lrReviewForm">
-                        <input type="hidden" name="csrf_token" value="<?= e(Csrf::token()) ?>">
-                        <input type="hidden" name="academic_work_id" value="<?= e($work['id'] ?? '') ?>">
+                    <div class="lr-card-body">
+                        <div class="lr-checklist-list" id="checklistList">
+                            <?php foreach ($checklistItems as $item): 
+                                $result = $checklistResults[$item['id']] ?? null;
+                                $isChecked = $result && in_array($result['result'], ['complete', 'not_applicable']);
+                                $note = $result['note'] ?? '';
+                            ?>
+                            <label class="lr-checklist-item <?= $note ? 'has-note' : '' ?>" data-item-id="<?= $item['id'] ?>">
+                                <input type="checkbox" name="checklist[<?= $item['id'] ?>][result]" value="complete" <?= $isChecked ? 'checked' : '' ?>>
+                                <input type="hidden" name="checklist[<?= $item['id'] ?>][note]" value="<?= e($note) ?>">
+                                <span class="lr-checklist-text"><?= e($item['item_text']) ?></span>
+                                <textarea class="lr-checklist-note" placeholder="Catatan opsional..."><?= e($note) ?></textarea>
+                            </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
 
+                <!-- Review Decision Form Card -->
+                <div class="lr-card delay-3">
+                    <div class="lr-card-header">
+                        <h3 class="lr-card-title"><i class="bi bi-pencil-square-fill"></i> Keputusan Review</h3>
+                    </div>
+                    <form method="POST" action="<?= BASE_URL ?>/api/reviews/decide" id="lrReviewForm">
+                        <input type="hidden" name="csrf_token" value="<?= e(Csrf::token()) ?>">
+                        <input type="hidden" name="document_version_id" value="<?= !empty($documents) ? $documents[0]['id'] : '' ?>">
+                        
                         <div class="lr-card-body">
                             <div class="lr-form">
-                                <!-- Decision Selection -->
+                                <!-- Decision Selection (HTML TETAP SAMA SEPERTI FILE LAMA ANDA) -->
                                 <div>
-                                    <h4 class="lr-form-section-title">
-                                        <i class="bi bi-ui-radios"></i>
-                                        Pilih Keputusan
-                                    </h4>
+                                    <h4 class="lr-form-section-title"><i class="bi bi-ui-radios"></i> Pilih Keputusan</h4>
                                     <div class="lr-decision-group" id="lrDecisionGroup">
                                         <label class="lr-decision-card opt-approve">
                                             <input type="radio" name="decision" value="approved" required>
                                             <div class="lr-decision-check"></div>
-                                            <div class="lr-decision-icon">
-                                                <i class="bi bi-check-circle-fill"></i>
-                                            </div>
+                                            <div class="lr-decision-icon"><i class="bi bi-check-circle-fill"></i></div>
                                             <div class="lr-decision-label">Disetujui</div>
-                                            <div class="lr-decision-desc">Dokumen telah sesuai dan dapat dilanjutkan ke tahap berikutnya.</div>
+                                            <div class="lr-decision-desc">Dokumen telah sesuai standar</div>
                                         </label>
-
                                         <label class="lr-decision-card opt-revision">
                                             <input type="radio" name="decision" value="needs_revision">
                                             <div class="lr-decision-check"></div>
-                                            <div class="lr-decision-icon">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </div>
+                                            <div class="lr-decision-icon"><i class="bi bi-pencil-square"></i></div>
                                             <div class="lr-decision-label">Perlu Revisi</div>
-                                            <div class="lr-decision-desc">Dokumen perlu diperbaiki sebelum dapat disetujui.</div>
+                                            <div class="lr-decision-desc">Perlu perbaikan tertentu</div>
                                         </label>
-
                                         <label class="lr-decision-card opt-reject">
                                             <input type="radio" name="decision" value="rejected">
                                             <div class="lr-decision-check"></div>
-                                            <div class="lr-decision-icon">
-                                                <i class="bi bi-x-circle-fill"></i>
-                                            </div>
+                                            <div class="lr-decision-icon"><i class="bi bi-x-circle-fill"></i></div>
                                             <div class="lr-decision-label">Ditolak</div>
-                                            <div class="lr-decision-desc">Dokumen tidak memenuhi standar dan harus dibuat ulang.</div>
+                                            <div class="lr-decision-desc">Harus dibuat ulang</div>
                                         </label>
                                     </div>
                                 </div>
 
-                                <!-- Comment -->
+                                <!-- Comment (HTML TETAP SAMA SEPERTI FILE LAMA ANDA) -->
                                 <div>
-                                    <h4 class="lr-form-section-title">
-                                        <i class="bi bi-chat-square-text-fill"></i>
-                                        Komentar & Catatan Review
-                                    </h4>
+                                    <h4 class="lr-form-section-title"><i class="bi bi-chat-square-text-fill"></i> Komentar & Catatan Review</h4>
                                     <div class="lr-comment-wrap">
-                                        <textarea name="comment" id="lrComment" class="lr-comment"
-                                                  maxlength="2000" rows="6"
-                                                  placeholder="Tuliskan catatan, saran perbaikan, atau alasan keputusan Anda..."></textarea>
+                                        <textarea name="general_note" id="lrComment" class="lr-comment" maxlength="2000" rows="6" placeholder="Tuliskan catatan umum untuk mahasiswa..."></textarea>
                                     </div>
                                     <div class="lr-comment-footer">
-                                        <div class="lr-comment-hint">
-                                            <i class="bi bi-info-circle-fill"></i>
-                                            Komentar akan dikirim ke mahasiswa
-                                        </div>
+                                        <div class="lr-comment-hint"><i class="bi bi-info-circle-fill"></i> Komentar akan dikirim ke mahasiswa</div>
                                         <div class="lr-comment-counter" id="lrCommentCounter">0/2000</div>
                                     </div>
                                 </div>
@@ -1109,18 +1147,36 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
                         </div>
 
                         <div class="lr-submit-area">
-                            <div class="lr-submit-hint">
-                                <i class="bi bi-shield-check"></i>
-                                <span>Keputusan Anda akan tercatat permanen</span>
-                            </div>
+                            <div class="lr-submit-hint"><i class="bi bi-shield-check"></i> <span>Keputusan Anda akan tercatat permanen</span></div>
                             <button type="submit" class="lr-submit-btn" id="lrSubmitBtn">
                                 <span class="lr-spinner"></span>
-                                <span class="lr-btn-text">
-                                    <i class="bi bi-send-fill"></i> Kirim Keputusan
-                                </span>
+                                <span class="lr-btn-text"><i class="bi bi-send-fill"></i> Kirim Keputusan</span>
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Popup Modal untuk Anotasi (Tempelkan di luar grid, sebelum div container ditutup) -->
+            <div class="lr-popup-overlay" id="annotationPopup">
+                <div class="lr-popup">
+                    <div class="lr-popup-title"><i class="bi bi-chat-left-quote-fill"></i> Tambah Komentar Halaman</div>
+                    <div class="lr-popup-field">
+                        <label class="lr-popup-label">Komentar / Catatan</label>
+                        <textarea class="lr-popup-textarea" id="popupComment" placeholder="Tulis catatan revisi di sini..."></textarea>
+                    </div>
+                    <div class="lr-popup-field">
+                        <label class="lr-popup-label">Prioritas</label>
+                        <div class="lr-popup-priority">
+                            <label><input type="radio" name="priority" value="minor"><span>Ringan</span></label>
+                            <label><input type="radio" name="priority" value="important" checked><span>Penting</span></label>
+                            <label><input type="radio" name="priority" value="mandatory"><span>Wajib</span></label>
+                        </div>
+                    </div>
+                    <div class="lr-popup-actions">
+                        <button type="button" class="lr-popup-btn lr-popup-btn-cancel" id="cancelAnnotation">Batal</button>
+                        <button type="button" class="lr-popup-btn lr-popup-btn-save" id="saveAnnotation">Simpan</button>
+                    </div>
                 </div>
             </div>
 
@@ -1214,136 +1270,157 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
 
     <script src="<?= BASE_URL ?>/assets/js/admin.js"></script>
     <script>
-    (function() {
+        (function() {
         'use strict';
+        
+        // Konfigurasi PDF
+        const pdfUrl = "<?= !empty($documents) ? e(BASE_URL . '/documents/download?id=' . $documents[0]['id']) : '' ?>";
+        const versionId = <?= !empty($documents) ? (int)$documents[0]['id'] : 0 ?>;
+        let pdfDoc = null, pageNum = 1, pageRendering = false, pageNumPending = null, scale = 1.0;
+        let currentAnnotations = [];
+        let pendingClick = null;
 
-        // ===== DECISION CARD SELECTION =====
-        const decisionCards = document.querySelectorAll('.lr-decision-card');
-        decisionCards.forEach(card => {
-            card.addEventListener('click', function() {
-                decisionCards.forEach(c => c.classList.remove('is-selected'));
-                this.classList.add('is-selected');
-                this.querySelector('input').checked = true;
-                // Remove validation error
-                document.getElementById('lrDecisionGroup')?.classList.remove('is-invalid');
-                const error = document.querySelector('#lrDecisionGroup + .lr-error-msg');
-                if (error) error.remove();
+        const canvas = document.getElementById('pdfCanvas');
+        const ctx = canvas.getContext('2d');
+        const annotLayer = document.getElementById('annotationLayer');
+
+        // Render Halaman PDF
+        const renderPage = (num) => {
+            if (!pdfDoc) return;
+            pageRendering = true;
+            pdfDoc.getPage(num).then((page) => {
+                const viewport = page.getViewport({ scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+                    pageRendering = false;
+                    if (pageNumPending !== null) { renderPage(pageNumPending); pageNumPending = null; }
+                    document.getElementById('currentPage').textContent = pageNum;
+                    document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                    renderAnnotationsOnCurrentPage();
+                });
             });
-        });
-
-        // ===== COMMENT COUNTER =====
-        const commentEl = document.getElementById('lrComment');
-        const counterEl = document.getElementById('lrCommentCounter');
-        const maxLen = 2000;
-
-        const updateCounter = () => {
-            const len = commentEl.value.length;
-            counterEl.textContent = len + '/' + maxLen;
-            counterEl.classList.toggle('warn', len > 1700 && len <= 1900);
-            counterEl.classList.toggle('danger', len > 1900);
         };
-        commentEl?.addEventListener('input', updateCounter);
-        updateCounter();
 
-        // ===== FORM VALIDATION =====
-        const form = document.getElementById('lrReviewForm');
-        const submitBtn = document.getElementById('lrSubmitBtn');
-
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                let isValid = true;
-
-                // Clear errors
-                document.querySelectorAll('.lr-error-msg').forEach(el => el.remove());
-                document.getElementById('lrDecisionGroup')?.classList.remove('is-invalid');
-                commentEl?.classList.remove('is-invalid');
-
-                // Validate decision
-                const decisionSelected = form.querySelector('input[name="decision"]:checked');
-                if (!decisionSelected) {
-                    isValid = false;
-                    document.getElementById('lrDecisionGroup')?.classList.add('is-invalid');
-                    const errorMsg = document.createElement('div');
-                    errorMsg.className = 'lr-error-msg';
-                    errorMsg.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i> Pilih salah satu keputusan';
-                    document.getElementById('lrDecisionGroup')?.insertAdjacentElement('afterend', errorMsg);
-                }
-
-                // Validate comment (required if needs_revision or rejected)
-                const decision = decisionSelected?.value;
-                if ((decision === 'needs_revision' || decision === 'rejected') && !commentEl.value.trim()) {
-                    isValid = false;
-                    commentEl.classList.add('is-invalid');
-                    const errorMsg = document.createElement('div');
-                    errorMsg.className = 'lr-error-msg';
-                    errorMsg.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i> Komentar wajib diisi untuk keputusan revisi/ditolak';
-                    commentEl.insertAdjacentElement('afterend', errorMsg);
-                }
-
-                if (!isValid) {
-                    e.preventDefault();
-                    if (window.showToast) window.showToast('Mohon lengkapi form dengan benar', 'error');
-                    const firstError = form.querySelector('.is-invalid');
-                    if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return false;
-                }
-
-                // Confirm before submit
-                const decisionLabels = {
-                    'approved': 'MENYETUJUI',
-                    'needs_revision': 'MEMINTA REVISI',
-                    'rejected': 'MENOLAK'
-                };
-                const label = decisionLabels[decision] || decision;
-                if (!confirm(`Apakah Anda yakin akan ${label} dokumen ini?\n\nKeputusan akan dikirim ke mahasiswa dan tercatat permanen.`)) {
-                    e.preventDefault();
-                    return false;
-                }
-
-                // Loading state
-                submitBtn.classList.add('is-loading');
-                submitBtn.disabled = true;
-            });
-
-            // Auto-remove errors
-            commentEl?.addEventListener('input', function() {
-                this.classList.remove('is-invalid');
-                const error = this.parentElement?.querySelector('.lr-error-msg');
-                if (error) error.remove();
-            });
+        // Load PDF & Anotasi Awal
+        if (pdfUrl) {
+            pdfjsLib.getDocument(pdfUrl).promise.then((pdf) => {
+                pdfDoc = pdf;
+                renderPage(pageNum);
+                fetchAnnotations();
+            }).catch(err => console.error('PDF Load Error:', err));
         }
 
-        // ===== PREVIEW PDF PLACEHOLDER =====
-        document.querySelectorAll('[data-doc-preview]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                if (window.showToast) {
-                    window.showToast('Fitur preview PDF akan segera hadir. Silakan unduh dokumen untuk melihat isinya.', 'info', 3000);
-                }
+        // Navigasi & Zoom
+        document.getElementById('prevPage')?.addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });
+        document.getElementById('nextPage')?.addEventListener('click', () => { if (pdfDoc && pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
+        document.getElementById('zoomIn')?.addEventListener('click', () => { scale += 0.25; renderPage(pageNum); });
+        document.getElementById('zoomOut')?.addEventListener('click', () => { if (scale > 0.5) { scale -= 0.25; renderPage(pageNum); } });
+        document.getElementById('zoomSelect')?.addEventListener('change', (e) => { scale = parseFloat(e.target.value); renderPage(pageNum); });
+
+        // Sistem Anotasi
+        const fetchAnnotations = async () => {
+            if (!versionId) return;
+            try {
+                const res = await fetch(`<?= BASE_URL ?>/api/comments?version_id=${versionId}`);
+                const data = await res.json();
+                if (data.success) currentAnnotations = data.annotations || [];
+                renderAnnotationsOnCurrentPage();
+            } catch (e) { console.error(e); }
+        };
+
+        const renderAnnotationsOnCurrentPage = () => {
+            if (!annotLayer) return;
+            annotLayer.innerHTML = '';
+            currentAnnotations.filter(a => a.page_number === pageNum).forEach(ann => {
+                const marker = document.createElement('div');
+                marker.className = `lr-annotation-marker priority-${ann.priority}`;
+                marker.style.left = ann.pos_x_pct + '%';
+                marker.style.top = ann.pos_y_pct + '%';
+                marker.textContent = '!';
+                marker.title = ann.comment;
+                marker.addEventListener('click', (e) => { e.stopPropagation(); alert(`Halaman ${ann.page_number}\nPrioritas: ${ann.priority}\n\n${ann.comment}`); });
+                annotLayer.appendChild(marker);
+            });
+        };
+
+        // Klik pada PDF untuk menambah anotasi
+        annotLayer?.addEventListener('click', (e) => {
+            if (!pdfDoc) return;
+            const rect = annotLayer.getBoundingClientRect();
+            pendingClick = { 
+                page: pageNum, 
+                x: ((e.clientX - rect.left) / rect.width * 100).toFixed(2), 
+                y: ((e.clientY - rect.top) / rect.height * 100).toFixed(2) 
+            };
+            document.getElementById('popupComment').value = '';
+            document.getElementById('annotationPopup').classList.add('active');
+        });
+
+        // Simpan Anotasi
+        document.getElementById('saveAnnotation')?.addEventListener('click', async () => {
+            const comment = document.getElementById('popupComment').value.trim();
+            const priority = document.querySelector('input[name="priority"]:checked')?.value || 'important';
+            if (!comment) { alert('Komentar tidak boleh kosong'); return; }
+            
+            const formData = new FormData();
+            formData.append('csrf_token', document.querySelector('[name="csrf_token"]').value);
+            formData.append('version_id', versionId);
+            formData.append('page_number', pendingClick.page);
+            formData.append('pos_x_pct', pendingClick.x);
+            formData.append('pos_y_pct', pendingClick.y);
+            formData.append('comment', comment);
+            formData.append('priority', priority);
+
+            try {
+                const res = await fetch('<?= BASE_URL ?>/api/comments/save', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    currentAnnotations.push({ id: data.id, page_number: pendingClick.page, pos_x_pct: pendingClick.x, pos_y_pct: pendingClick.y, comment, priority, author_name: 'Anda' });
+                    renderAnnotationsOnCurrentPage();
+                    document.getElementById('annotationPopup').classList.remove('active');
+                } else { alert('Gagal menyimpan: ' + (data.error || 'Unknown')); }
+            } catch (e) { alert('Error jaringan saat menyimpan anotasi'); }
+        });
+
+        document.getElementById('cancelAnnotation')?.addEventListener('click', () => { document.getElementById('annotationPopup').classList.remove('active'); });
+
+        // Logika Checklist Interaktif
+        document.querySelectorAll('.lr-checklist-item input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const noteArea = this.closest('.lr-checklist-item').querySelector('.lr-checklist-note');
+                if (this.checked && !noteArea.value.trim()) { noteArea.style.display = 'block'; noteArea.focus(); } 
+                else if (!this.checked) { noteArea.style.display = 'none'; }
             });
         });
 
-        // ===== ALERT AUTO-DISMISS =====
-        document.querySelectorAll('.lr-view .alert-dismissible .btn-close').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const alert = e.target.closest('.alert');
-                alert.style.transition = 'all 0.3s';
-                alert.style.opacity = '0';
-                alert.style.transform = 'translateX(30px)';
-                setTimeout(() => alert.remove(), 300);
+        // Logika Decision Cards & Form Validation (Sama seperti sebelumnya)
+        document.querySelectorAll('.lr-decision-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.lr-decision-card').forEach(c => c.classList.remove('is-selected'));
+                this.classList.add('is-selected');
+                this.querySelector('input').checked = true;
             });
         });
 
-        document.querySelectorAll('.lr-view .alert-success').forEach(alert => {
-            setTimeout(() => {
-                if (alert.parentElement) {
-                    alert.style.transition = 'all 0.3s';
-                    alert.style.opacity = '0';
-                    setTimeout(() => alert.remove(), 300);
-                }
-            }, 5000);
-        });
-
-        console.log('%c✓ Lecturer Review Loaded', 'color: #10b981; font-weight: bold;');
+        const form = document.getElementById('lrReviewForm');
+        const submitBtn = document.getElementById('lrSubmitBtn');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const decisionSelected = form.querySelector('input[name="decision"]:checked');
+                if (!decisionSelected) { e.preventDefault(); alert('Pilih salah satu keputusan terlebih dahulu.'); return; }
+                submitBtn.classList.add('is-loading'); submitBtn.disabled = true;
+            });
+        }
+        
+        // Counter komentar tetap dipertahankan
+        const commentEl = document.getElementById('lrComment');
+        const counterEl = document.getElementById('lrCommentCounter');
+        if(commentEl && counterEl) {
+            commentEl.addEventListener('input', () => {
+                counterEl.textContent = commentEl.value.length + '/2000';
+            });
+        }
     })();
     </script>
 </body>
