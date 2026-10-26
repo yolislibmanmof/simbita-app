@@ -44,7 +44,7 @@ define('APP_VERSION', '1.0.0');
  * true  = Development (tampilkan error detail + akun demo di login)
  * false = Production  (error disembunyikan, hanya log)
  */
-define('APP_DEBUG', false);
+define('APP_DEBUG', false)
 
 // =====================================================================
 // 5. DATABASE CONFIGURATION

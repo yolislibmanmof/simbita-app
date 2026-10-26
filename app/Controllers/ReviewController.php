@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 class ReviewController
 {
-    /**
-     * API Endpoint: Simpan Anotasi/Komentar pada Halaman PDF
-     * Route: POST /api/comments/save
-     */
     public static function saveAnnotation(): void
     {
         Auth::requireRole('lecturer', 'admin');
@@ -16,7 +12,6 @@ class ReviewController
             json_response(['error' => 'Token keamanan tidak valid'], 419);
         }
 
-        // Validasi input dasar
         $versionId = (int)($_POST['version_id'] ?? 0);
         $page      = (int)($_POST['page_number'] ?? 0);
         $xPct      = (float)($_POST['pos_x_pct'] ?? 0);
@@ -28,7 +23,6 @@ class ReviewController
             json_response(['error' => 'Data anotasi tidak lengkap'], 400);
         }
 
-        // Validasi prioritas agar aman dari injeksi
         $allowedPriorities = ['minor', 'important', 'mandatory'];
         if (!in_array($priority, $allowedPriorities, true)) {
             $priority = 'important';
@@ -37,8 +31,6 @@ class ReviewController
         try {
             $db = Database::connection();
             
-            // Cek apakah sudah ada review aktif untuk versi dokumen ini
-            // Jika belum ada, buat record review baru dengan status 'in_review'
             $stmt = $db->prepare('SELECT id FROM reviews WHERE document_version_id = ? AND reviewer_id = ? ORDER BY created_at DESC LIMIT 1');
             $stmt->execute([$versionId, Auth::id()]);
             $review = $stmt->fetch();
@@ -51,7 +43,6 @@ class ReviewController
                 $reviewId = (int)$review['id'];
             }
 
-            // Simpan komentar/anotasi ke tabel review_comments
             $stmt = $db->prepare('
                 INSERT INTO review_comments 
                 (review_id, page_number, position_x, position_y, comment_text, priority, is_resolved, created_at)
@@ -71,10 +62,6 @@ class ReviewController
         }
     }
 
-    /**
-     * API Endpoint: Ambil Semua Anotasi untuk Suatu Versi Dokumen
-     * Route: GET /api/comments?version_id=X
-     */
     public static function getComments(): void
     {
         Auth::requireRole('lecturer', 'student', 'admin');
@@ -86,8 +73,6 @@ class ReviewController
 
         try {
             $db = Database::connection();
-            
-            // Verifikasi hak akses: Hanya pemilik TA, pembimbing, atau admin yang boleh lihat anotasi
             $canAccess = false;
             $userId = Auth::id();
             $role = Auth::role();
@@ -121,7 +106,6 @@ class ReviewController
                 json_response(['error' => 'Akses ditolak'], 403);
             }
 
-            // Ambil data anotasi
             $stmt = $db->prepare('
                 SELECT rc.id, rc.page_number, rc.position_x as pos_x_pct, rc.position_y as pos_y_pct, 
                        rc.comment_text as comment, rc.priority, rc.created_at,
@@ -144,10 +128,6 @@ class ReviewController
         }
     }
 
-    /**
-     * API Endpoint: Submit Keputusan Final Review & Checklist
-     * Route: POST /api/reviews/decide
-     */
     public static function decide(): void
     {
         Auth::requireRole('lecturer', 'admin');
@@ -160,7 +140,7 @@ class ReviewController
         $versionId = (int)($_POST['document_version_id'] ?? 0);
         $decision  = $_POST['decision'] ?? '';
         $note      = trim($_POST['general_note'] ?? '');
-        $checklist = $_POST['checklist'] ?? []; // Array dari checklist items
+        $checklist = $_POST['checklist'] ?? [];
 
         if ($versionId <= 0 || !in_array($decision, ['approved', 'needs_revision', 'rejected'], true)) {
             json_response(['error' => 'Data keputusan tidak valid'], 400);
@@ -170,7 +150,6 @@ class ReviewController
             $db = Database::connection();
             $db->beginTransaction();
 
-            // 1. Cari atau Buat Record Review
             $stmt = $db->prepare('SELECT id FROM reviews WHERE document_version_id = ? AND reviewer_id = ? ORDER BY created_at DESC LIMIT 1');
             $stmt->execute([$versionId, Auth::id()]);
             $review = $stmt->fetch();
@@ -183,7 +162,6 @@ class ReviewController
                 $reviewId = (int)$review['id'];
             }
 
-            // 2. Update Status Review & Catatan Umum
             $stmt = $db->prepare('
                 UPDATE reviews 
                 SET review_status = ?, general_note = ?, reviewed_at = NOW(), updated_at = NOW() 
@@ -191,9 +169,7 @@ class ReviewController
             ');
             $stmt->execute([$decision, $note, $reviewId]);
 
-            // 3. Simpan/Update Hasil Checklist
             if (!empty($checklist) && is_array($checklist)) {
-                // Hapus hasil checklist lama untuk review ini agar bersih
                 $db->prepare('DELETE FROM review_checklist_results WHERE review_id = ?')->execute([$reviewId]);
 
                 $stmt = $db->prepare('
@@ -205,7 +181,6 @@ class ReviewController
                     $result = $data['result'] ?? 'pending';
                     $itemNote = $data['note'] ?? null;
                     
-                    // Pastikan result valid sesuai ENUM di database
                     if (!in_array($result, ['pending', 'complete', 'incomplete', 'not_applicable'], true)) {
                         $result = 'pending';
                     }
@@ -214,7 +189,6 @@ class ReviewController
                 }
             }
 
-            // 4. Kirim Notifikasi ke Mahasiswa
             $stmt = $db->prepare('
                 SELECT sp.user_id FROM document_versions dv
                 JOIN documents d ON dv.document_id = d.id
