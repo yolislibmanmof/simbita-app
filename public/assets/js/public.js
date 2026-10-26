@@ -1,97 +1,252 @@
-/**
- * =====================================================================
- * SIMBITA - PUBLIC WEBSITE JAVASCRIPT (FINAL MULTIMATE)
- * High Performance, Modern Interactions, Smooth Animations
- * =====================================================================
- */
+/* =========================================================
+   SIMBITA PUBLIC LANDING PAGE - ULTRA SMOOTH INTERACTIONS
+   ========================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // === 1. LOADING SCREEN ===
-    const loadingScreen = document.getElementById('loadingScreen');
-    if (loadingScreen) {
+    // ===== UTILITY FUNCTIONS =====
+    const debounce = (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    };
+
+    const throttle = (func, limit) => {
+        let inThrottle;
+        return function(...args) {
+            if (!inThrottle) {
+                func.apply(this, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    };
+
+    // ===== 1. LOADING SCREEN =====
+    const loader = document.getElementById('loadingScreen');
+    if (loader) {
         window.addEventListener('load', () => {
-            loadingScreen.classList.add('hidden');
-            // Hapus dari DOM setelah animasi selesai untuk menghemat memori
             setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 500);
+                loader.classList.add('hidden');
+                // Trigger entrance animations after loader
+                document.body.style.overflow = 'auto';
+            }, 800);
         });
     }
 
-    // === 2. NAVBAR SCROLL EFFECT & ACTIVE LINK ===
+    // Prevent scroll during loading
+    document.body.style.overflow = 'hidden';
+
+    // ===== 2. NAVBAR ENHANCED =====
     const navbar = document.getElementById('navbar');
-    const navLinks = document.querySelectorAll('.nav-link');
-    const sections = document.querySelectorAll('section[id]');
+    let lastScrollY = window.scrollY;
 
-    const handleNavbarScroll = () => {
-        if (window.scrollY > 50) {
-            navbar?.classList.add('scrolled');
+    const handleScroll = throttle(() => {
+        const currentScrollY = window.scrollY;
+        
+        // Add/remove scrolled class
+        if (currentScrollY > 50) {
+            navbar.classList.add('scrolled');
         } else {
-            navbar?.classList.remove('scrolled');
+            navbar.classList.remove('scrolled');
         }
+        
+        // Hide/show navbar on scroll direction
+        if (currentScrollY > lastScrollY && currentScrollY > 200) {
+            navbar.style.transform = 'translateY(-100%)';
+        } else {
+            navbar.style.transform = 'translateY(0)';
+        }
+        
+        lastScrollY = currentScrollY;
+    }, 100);
 
-        // Highlight menu aktif berdasarkan scroll position
-        let currentSection = '';
-        sections.forEach(section => {
-            const sectionTop = section.offsetTop - 100; // Offset untuk fixed navbar
-            if (window.scrollY >= sectionTop) {
-                currentSection = section.getAttribute('id');
-            }
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    // ===== 3. MOBILE MENU =====
+    const navToggle = document.getElementById('navbarToggle');
+    const navMenu = document.getElementById('navbarMenu');
+    
+    if (navToggle && navMenu) {
+        navToggle.addEventListener('click', () => {
+            navToggle.classList.toggle('active');
+            navMenu.classList.toggle('active');
+            document.body.style.overflow = navMenu.classList.contains('active') ? 'hidden' : 'auto';
         });
 
-        navLinks.forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('href') === `#${currentSection}`) {
-                link.classList.add('active');
-            }
-        });
-    };
-
-    window.addEventListener('scroll', handleNavbarScroll, { passive: true });
-
-    // === 3. MOBILE MENU TOGGLE ===
-    const navbarToggle = document.getElementById('navbarToggle');
-    const navbarMenu = document.getElementById('navbarMenu');
-
-    if (navbarToggle && navbarMenu) {
-        navbarToggle.addEventListener('click', () => {
-            navbarToggle.classList.toggle('active');
-            navbarMenu.classList.toggle('active');
-            // Prevent body scroll saat menu terbuka
-            document.body.style.overflow = navbarMenu.classList.contains('active') ? 'hidden' : '';
-        });
-
-        // Tutup menu saat link diklik
-        navLinks.forEach(link => {
+        // Close menu on link click
+        navMenu.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
-                navbarToggle.classList.remove('active');
-                navbarMenu.classList.remove('active');
-                document.body.style.overflow = '';
+                navToggle.classList.remove('active');
+                navMenu.classList.remove('active');
+                document.body.style.overflow = 'auto';
             });
         });
 
-        // Tutup menu saat klik di luar area menu
-        document.addEventListener('click', (e) => {
-            if (!navbarMenu.contains(e.target) && !navbarToggle.contains(e.target) && navbarMenu.classList.contains('active')) {
-                navbarToggle.classList.remove('active');
-                navbarMenu.classList.remove('active');
-                document.body.style.overflow = '';
+        // Close menu on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && navMenu.classList.contains('active')) {
+                navToggle.classList.remove('active');
+                navMenu.classList.remove('active');
+                document.body.style.overflow = 'auto';
             }
         });
     }
 
-    // === 4. SMOOTH SCROLLING (Dengan Offset Navbar) ===
+    // ===== 4. PARTICLE SYSTEM ENHANCED =====
+    const particlesContainer = document.getElementById('particles');
+    if (particlesContainer) {
+        const particleCount = window.innerWidth < 768 ? 15 : 30;
+        
+        for (let i = 0; i < particleCount; i++) {
+            createParticle(particlesContainer);
+        }
+    }
+
+    function createParticle(container) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        
+        const size = Math.random() * 8 + 2;
+        const posX = Math.random() * 100;
+        const posY = Math.random() * 100;
+        const duration = Math.random() * 15 + 15;
+        const delay = Math.random() * 5;
+        
+        particle.style.cssText = `
+            width: ${size}px;
+            height: ${size}px;
+            left: ${posX}%;
+            top: ${posY}%;
+            animation-duration: ${duration}s;
+            animation-delay: ${delay}s;
+            opacity: ${Math.random() * 0.5 + 0.1};
+        `;
+        
+        container.appendChild(particle);
+    }
+
+    // ===== 5. SPOTLIGHT EFFECT FOR CARDS =====
+    const spotlightCards = document.querySelectorAll('.feature-card, .testimonial-card');
+    
+    spotlightCards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            card.style.setProperty('--mouse-x', `${x}px`);
+            card.style.setProperty('--mouse-y', `${y}px`);
+        });
+    });
+
+    // ===== 6. SCROLL ANIMATIONS =====
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -80px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                
+                // Trigger counter animation for stats
+                if (entry.target.classList.contains('hero-stats') || entry.target.querySelector('.stat-number')) {
+                    animateCounters();
+                }
+                
+                // Unobserve after animation
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll('.animate-on-scroll').forEach(el => {
+        observer.observe(el);
+    });
+
+    // ===== 7. COUNTER ANIMATION ENHANCED =====
+    let countersAnimated = false;
+    
+    function animateCounters() {
+        if (countersAnimated) return;
+        countersAnimated = true;
+        
+        const counters = document.querySelectorAll('.stat-number');
+        
+        counters.forEach((counter, index) => {
+            const target = parseInt(counter.getAttribute('data-target'));
+            const duration = 2000;
+            const delay = index * 200;
+            const startTime = performance.now() + delay;
+            
+            const animate = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function (easeOutQuart)
+                const easeOut = 1 - Math.pow(1 - progress, 4);
+                
+                const current = Math.floor(easeOut * target);
+                counter.textContent = current.toLocaleString('id-ID');
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    counter.textContent = target.toLocaleString('id-ID');
+                }
+            };
+            
+            requestAnimationFrame(animate);
+        });
+    }
+
+    // ===== 8. SCROLL TO TOP =====
+    const scrollTopBtn = document.getElementById('scrollTop');
+    
+    const handleScrollTop = throttle(() => {
+        if (window.scrollY > 500) {
+            scrollTopBtn.classList.add('visible');
+        } else {
+            scrollTopBtn.classList.remove('visible');
+        }
+    }, 100);
+
+    window.addEventListener('scroll', handleScrollTop, { passive: true });
+
+    scrollTopBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+
+    // ===== 9. SMOOTH SCROLL FOR ANCHOR LINKS =====
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
             const targetId = this.getAttribute('href');
+            
             if (targetId === '#') return;
             
             const targetElement = document.querySelector(targetId);
             if (targetElement) {
-                e.preventDefault();
-                const navbarHeight = navbar ? navbar.offsetHeight : 0;
-                const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
+                // Close mobile menu if open
+                if (navMenu && navMenu.classList.contains('active')) {
+                    navToggle.classList.remove('active');
+                    navMenu.classList.remove('active');
+                    document.body.style.overflow = 'auto';
+                }
+                
+                const navbarHeight = navbar.offsetHeight;
+                const targetPosition = targetElement.offsetTop - navbarHeight;
                 
                 window.scrollTo({
                     top: targetPosition,
@@ -101,160 +256,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // === 5. SCROLL ANIMATIONS (Intersection Observer) ===
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-
-    const scrollObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-                // Unobserve setelah animasi terjadi agar hanya berjalan sekali (hemat resource)
-                scrollObserver.unobserve(entry.target);
-            }
-        });
-    }, observerOptions);
-
-    document.querySelectorAll('.animate-on-scroll').forEach(el => {
-        scrollObserver.observe(el);
-    });
-
-    // === 6. COUNTER ANIMATION (High Performance dengan requestAnimationFrame) ===
-    const animateCounter = (element) => {
-        const target = parseInt(element.getAttribute('data-target'), 10);
-        const duration = 2000; // 2 detik
-        const startTime = performance.now();
-
-        const updateCounter = (currentTime) => {
-            const elapsedTime = currentTime - startTime;
-            const progress = Math.min(elapsedTime / duration, 1);
-            
-            // Easing function untuk animasi yang lebih natural (easeOutExpo)
-            const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-            
-            const current = Math.floor(easeProgress * target);
-            element.textContent = current;
-
-            if (progress < 1) {
-                requestAnimationFrame(updateCounter);
-            } else {
-                element.textContent = target; // Pastikan nilai akhir tepat
-            }
-        };
-
-        requestAnimationFrame(updateCounter);
-    };
-
-    const counterObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                animateCounter(entry.target);
-                counterObserver.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.5 });
-
-    document.querySelectorAll('.stat-number[data-target]').forEach(el => {
-        counterObserver.observe(el);
-    });
-
-    // === 7. FAQ ACCORDION ===
-    document.querySelectorAll('.faq-question').forEach(button => {
-        button.addEventListener('click', () => {
-            const faqItem = button.parentElement;
-            const isActive = faqItem.classList.contains('active');
-
-            // Tutup semua FAQ lainnya (opsional: hapus blok ini jika ingin multiple open)
-            document.querySelectorAll('.faq-item').forEach(item => {
-                item.classList.remove('active');
-            });
-
-            // Toggle status FAQ yang diklik
-            if (!isActive) {
-                faqItem.classList.add('active');
-            }
-        });
-    });
-
-    // === 8. SCROLL TO TOP BUTTON ===
-    const scrollTopBtn = document.getElementById('scrollTop');
+    // ===== 10. PARALLAX EFFECT FOR HERO =====
+    const hero = document.querySelector('.hero');
+    const heroContent = document.querySelector('.hero-content');
     
-    if (scrollTopBtn) {
+    if (hero && heroContent) {
         window.addEventListener('scroll', () => {
-            if (window.scrollY > 500) {
-                scrollTopBtn.classList.add('visible');
-            } else {
-                scrollTopBtn.classList.remove('visible');
+            const scrolled = window.scrollY;
+            const heroHeight = hero.offsetHeight;
+            
+            if (scrolled < heroHeight) {
+                const parallaxSpeed = 0.5;
+                heroContent.style.transform = `translateY(${scrolled * parallaxSpeed}px)`;
+                heroContent.style.opacity = 1 - (scrolled / heroHeight);
             }
         }, { passive: true });
+    }
 
-        scrollTopBtn.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
+    // ===== 11. MAGNETIC BUTTONS =====
+    const magneticBtns = document.querySelectorAll('.btn-glow');
+    
+    magneticBtns.forEach(btn => {
+        btn.addEventListener('mousemove', (e) => {
+            const rect = btn.getBoundingClientRect();
+            const x = e.clientX - rect.left - rect.width / 2;
+            const y = e.clientY - rect.top - rect.height / 2;
+            
+            btn.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px)`;
+        });
+        
+        btn.addEventListener('mouseleave', () => {
+            btn.style.transform = 'translate(0, 0)';
+        });
+    });
+
+    // ===== 12. PERFORMANCE OPTIMIZATION =====
+    // Pause animations when tab is not visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            document.body.style.animationPlayState = 'paused';
+        } else {
+            document.body.style.animationPlayState = 'running';
+        }
+    });
+
+    // ===== 13. PREFERS REDUCED MOTION =====
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    
+    if (prefersReducedMotion.matches) {
+        document.querySelectorAll('*').forEach(el => {
+            el.style.animation = 'none';
+            el.style.transition = 'none';
         });
     }
 
-    // === 9. RIPPLE EFFECT PADA TOMBOL (Premium Feel) ===
-    document.querySelectorAll('.btn').forEach(button => {
-        button.addEventListener('click', function(e) {
-            // Hindari membuat ripple jika sudah ada (mencegah memory leak)
-            if (this.querySelector('.ripple-effect')) return;
+    // ===== 14. CONSOLE EASTER EGG =====
+    console.log('%c🚀 SIMBITA', 'color: #6366f1; font-size: 2rem; font-weight: bold;');
+    console.log('%cSistem Informasi Bimbingan Tugas Akhir', 'color: #94a3b8; font-size: 1rem;');
+    console.log('%cMade with ❤️ by Yolis Libman', 'color: #f43f5e; font-size: 0.9rem;');
 
-            const rect = this.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            const x = e.clientX - rect.left - size / 2;
-            const y = e.clientY - rect.top - size / 2;
-
-            const ripple = document.createElement('span');
-            ripple.classList.add('ripple-effect');
-            ripple.style.width = ripple.style.height = `${size}px`;
-            ripple.style.left = `${x}px`;
-            ripple.style.top = `${y}px`;
-            
-            // Inject style dinamis jika belum ada di CSS
-            if (!document.getElementById('ripple-style')) {
-                const style = document.createElement('style');
-                style.id = 'ripple-style';
-                style.textContent = `
-                    .btn { position: relative; overflow: hidden; }
-                    .ripple-effect {
-                        position: absolute;
-                        border-radius: 50%;
-                        background: rgba(255, 255, 255, 0.4);
-                        transform: scale(0);
-                        animation: ripple-animation 0.6s linear;
-                        pointer-events: none;
-                    }
-                    @keyframes ripple-animation {
-                        to { transform: scale(4); opacity: 0; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            this.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-        });
+    // ===== CLEANUP =====
+    window.addEventListener('beforeunload', () => {
+        observer.disconnect();
     });
-
-    // === 10. FORM VALIDATION (Preventive) ===
-    document.querySelectorAll('form').forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (!form.checkValidity()) {
-                e.preventDefault();
-                e.stopPropagation();
-                // Tambahkan visual feedback untuk field yang invalid
-                form.classList.add('was-validated');
-            }
-        }, false);
-    });
-
-    // === 11. CONSOLE BRANDING (Professional Touch) ===
-    console.log('%c SIMBITA ', 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 16px; font-weight: bold; padding: 8px 12px; border-radius: 6px;');
-    console.log('%c Sistem Informasi Bimbingan Tugas Akhir Digital v1.0 ', 'color: #6b7280; font-size: 12px; font-weight: 500;');
-    console.log('%c Developed with ❤️ for Academic Excellence ', 'color: #3b82f6; font-size: 12px;');
 });
