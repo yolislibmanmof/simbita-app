@@ -170,6 +170,13 @@ try {
         $path === '/logout' 
             => AuthController::logout(),
         
+        // Route Lupa Password
+        $path === '/forgot-password' && $method === 'GET' 
+            => AuthController::showForgotPassword(),
+        
+        $path === '/forgot-password' && $method === 'POST' 
+            => AuthController::processForgotPassword(),
+        
         // =================================================================
         // ADMIN ROUTES (Admin Only)
         // =================================================================
@@ -296,6 +303,19 @@ try {
             => (function() {
                 requireRole('admin');
                 AdminController::showWork();
+            })(),
+        
+        // Route Audit Log Admin
+        $path === '/admin/logs' && $method === 'GET' 
+            => (function() {
+                requireRole('admin');
+                AdminController::logs();
+            })(),
+        
+        $path === '/admin/logs/export' && $method === 'GET' 
+            => (function() {
+                requireRole('admin');
+                AdminController::exportLogs();
             })(),
         
         // =================================================================

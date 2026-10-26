@@ -3,3 +3,4 @@
 [26-Oct-2026 11:55:14 Asia/Jakarta] [GET /api/notifications/count] Call to undefined method Notification::countUnread()
 [26-Oct-2026 11:55:44 Asia/Jakarta] [GET /api/notifications/count] Call to undefined method Notification::countUnread()
 [26-Oct-2026 11:56:14 Asia/Jakarta] [GET /api/notifications/count] Call to undefined method Notification::countUnread()
+[26-Oct-2026 12:44:15 Asia/Jakarta] [Milestone Scan] Scanned: 0, Notifications sent: 0

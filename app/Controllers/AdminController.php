@@ -625,4 +625,140 @@ class AdminController
         
         require dirname(__DIR__) . '/Views/admin/work_detail.php';
     }
+
+       // =================================================================
+    // AUDIT LOGS
+    // =================================================================
+    public static function logs(): void
+    {
+        Auth::requireRole('admin');
+        $db = Database::connection();
+        
+        $search = trim($_GET['search'] ?? '');
+        $action = trim($_GET['action'] ?? '');
+        $dateFrom = $_GET['date_from'] ?? '';
+        $dateTo = $_GET['date_to'] ?? '';
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 20;
+        
+        $where = ['1=1'];
+        $params = [];
+        
+        if ($search !== '') {
+            $where[] = '(u.name LIKE ? OR al.description LIKE ? OR al.ip_address LIKE ?)';
+            $likeSearch = '%' . $search . '%';
+            $params[] = $likeSearch; $params[] = $likeSearch; $params[] = $likeSearch;
+        }
+        if ($action !== '') {
+            $where[] = 'al.action = ?';
+            $params[] = $action;
+        }
+        if ($dateFrom !== '') {
+            $where[] = 'al.created_at >= ?';
+            $params[] = $dateFrom . ' 00:00:00';
+        }
+        if ($dateTo !== '') {
+            $where[] = 'al.created_at <= ?';
+            $params[] = $dateTo . ' 23:59:59';
+        }
+        
+        $whereClause = implode(' AND ', $where);
+        
+        // Count total
+        $countSql = "SELECT COUNT(*) as total FROM activity_logs al LEFT JOIN users u ON al.user_id = u.id WHERE $whereClause";
+        $stmtCount = $db->prepare($countSql);
+        $stmtCount->execute($params);
+        $total = (int)$stmtCount->fetch()['total'];
+        
+        // Fetch data
+        $offset = ($page - 1) * $perPage;
+        $params[] = $perPage;
+        $params[] = $offset;
+        
+        $dataSql = "
+            SELECT al.*, u.name as user_name, u.role as user_role
+            FROM activity_logs al
+            LEFT JOIN users u ON al.user_id = u.id
+            WHERE $whereClause
+            ORDER BY al.created_at DESC
+            LIMIT ? OFFSET ?
+        ";
+        $stmtData = $db->prepare($dataSql);
+        $stmtData->execute($params);
+        $logs = $stmtData->fetchAll();
+        
+        // Get unique actions for filter dropdown
+        $stmtActions = $db->query("SELECT DISTINCT action FROM activity_logs ORDER BY action ASC");
+        $actions = $stmtActions->fetchAll(PDO::FETCH_COLUMN);
+        
+        require dirname(__DIR__) . '/Views/admin/logs.php';
+    }
+
+    public static function exportLogs(): void
+    {
+        Auth::requireRole('admin');
+        $db = Database::connection();
+        
+        $search = trim($_GET['search'] ?? '');
+        $action = trim($_GET['action'] ?? '');
+        $dateFrom = $_GET['date_from'] ?? '';
+        $dateTo = $_GET['date_to'] ?? '';
+        
+        $where = ['1=1'];
+        $params = [];
+        
+        if ($search !== '') {
+            $where[] = '(u.name LIKE ? OR al.description LIKE ? OR al.ip_address LIKE ?)';
+            $likeSearch = '%' . $search . '%';
+            $params[] = $likeSearch; $params[] = $likeSearch; $params[] = $likeSearch;
+        }
+        if ($action !== '') {
+            $where[] = 'al.action = ?';
+            $params[] = $action;
+        }
+        if ($dateFrom !== '') {
+            $where[] = 'al.created_at >= ?';
+            $params[] = $dateFrom . ' 00:00:00';
+        }
+        if ($dateTo !== '') {
+            $where[] = 'al.created_at <= ?';
+            $params[] = $dateTo . ' 23:59:59';
+        }
+        
+        $whereClause = implode(' AND ', $where);
+        
+        $dataSql = "
+            SELECT al.created_at, u.name as user_name, u.role as user_role, al.action, al.related_table, al.description, al.ip_address
+            FROM activity_logs al
+            LEFT JOIN users u ON al.user_id = u.id
+            WHERE $whereClause
+            ORDER BY al.created_at DESC
+        ";
+        $stmt = $db->prepare($dataSql);
+        $stmt->execute($params);
+        $logs = $stmt->fetchAll();
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="audit_logs_' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        // BOM for Excel UTF-8 compatibility
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        fputcsv($output, ['Waktu', 'User', 'Role', 'Aksi', 'Tabel Terkait', 'Deskripsi', 'IP Address']);
+        
+        foreach ($logs as $log) {
+            fputcsv($output, [
+                $log['created_at'],
+                $log['user_name'] ?? 'System',
+                $log['user_role'] ?? 'N/A',
+                $log['action'],
+                $log['related_table'] ?? '-',
+                $log['description'] ?? '-',
+                $log['ip_address'] ?? '-'
+            ]);
+        }
+        fclose($output);
+        exit;
+    }
+
 }

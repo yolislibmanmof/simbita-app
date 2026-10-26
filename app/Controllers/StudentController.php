@@ -148,16 +148,24 @@ class StudentController
             $stmt->execute([$documentId]);
             $nextVersion = (int)$stmt->fetch()['next_version'];
 
-            // Simpan metadata versi baru
+            // Hitung jumlah halaman PDF (Best-effort regex, tanpa library eksternal)
+            $pageCount = 1;
+            if ($mimeType === 'application/pdf' && file_exists($filePath)) {
+                $content = file_get_contents($filePath);
+                preg_match_all('/\/Type\s*\/Page\b/', $content, $matches);
+                $pageCount = count($matches[0]) > 0 ? count($matches[0]) : 1;
+            }
+
+            // Simpan metadata versi baru (dengan page_count)
             $stmt = $db->prepare('
                 INSERT INTO document_versions 
                 (document_id, version_number, original_filename, stored_filename, 
-                 file_path, file_mime, file_size_bytes, student_note, uploaded_by, uploaded_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                 file_path, file_mime, file_size_bytes, page_count, student_note, uploaded_by, uploaded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ');
             $stmt->execute([
                 $documentId, $nextVersion, $file['name'], $storedFilename,
-                $filePath, $mimeType, $file['size'], $note, $userId
+                $filePath, $mimeType, $file['size'], $pageCount, $note, $userId
             ]);
 
             $versionId = (int)$db->lastInsertId();

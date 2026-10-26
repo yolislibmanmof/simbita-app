@@ -600,7 +600,7 @@ $oldEmail = $_POST['email'] ?? '';
                             <i class="bi bi-lock-fill"></i>
                             Password
                         </span>
-                        <a href="#" class="lg-forgot" onclick="return false;">Lupa password?</a>
+                        <a href="<?= BASE_URL ?>/forgot-password" class="lg-forgot">Lupa password?</a>
                     </label>
                     <div class="lg-input-wrap">
                         <input 
