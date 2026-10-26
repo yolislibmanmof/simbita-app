@@ -245,3 +245,4 @@ class StudentController
         // 3. Kirim SEMUA variabel ke view
         require dirname(__DIR__) . '/Views/student/history.php';
     }
+ } 
