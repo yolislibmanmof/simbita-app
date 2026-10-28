@@ -4,7 +4,15 @@ $userName  = $_SESSION['simbita_user']['name'] ?? 'User';
 $userRole  = Auth::role();
 $userId    = Auth::id();
 $userEmail = $_SESSION['simbita_user']['email'] ?? '';
-
+// Hitung proposal menunggu (badge menu)
+$pendingProposals = 0;
+try {
+    if (class_exists('TitleProposal')) {
+        $pendingProposals = TitleProposal::countPendingForUser($userId);
+    }
+} catch (Throwable $e) {
+    $pendingProposals = 0;
+}
 // Ambil notifikasi via Model
 $unreadCount = 0;
 $notifications = [];
@@ -56,6 +64,7 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
 .nb-icon-btn:hover{background:#f9fafb;color:#111827;transform:translateY(-1px);box-shadow:0 4px 10px -4px rgba(0,0,0,0.15)}
 .nb-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:linear-gradient(133deg,#ef4444,#dc2626);color:#fff;font-size:0.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;animation:nbPulse 2s infinite}
 .nb-badge.nb-badge-new{animation:nbBounce 0.6s ease}
+.nb-menu-badge{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:0.65rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-left:0.35rem}
 @keyframes nbPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
 @keyframes nbBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 .nb-user-btn{display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.7rem 0.3rem 0.3rem;border-radius:0.8rem;border:1px solid #e5e7eb;background:#fff;cursor:pointer;transition:all 0.25s;font-family:inherit}
@@ -127,13 +136,21 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
                 <li><a href="<?= BASE_URL ?>/admin/students" class="<?= $isActive('/admin/students') ?>"><i class="bi bi-people"></i> Mahasiswa</a></li>
                 <li><a href="<?= BASE_URL ?>/admin/lecturers" class="<?= $isActive('/admin/lecturers') ?>"><i class="bi bi-person-workspace"></i> Dosen</a></li>
                 <li><a href="<?= BASE_URL ?>/admin/works" class="<?= $isActive('/admin/works') ?>"><i class="bi bi-file-earmark-text"></i> Tugas Akhir</a></li>
+                <li><a href="<?= BASE_URL ?>/repository" class="<?= $isActive('/repository') ?>"><i class="bi bi-archive"></i> Repository</a></li>
             <?php elseif ($userRole === 'lecturer'): ?>
                 <li><a href="<?= BASE_URL ?>/lecturer/dashboard" class="<?= $isActive('/lecturer/dashboard') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                <li><a href="<?= BASE_URL ?>/lecturer/proposals" class="<?= $isActive('/lecturer/proposals') ?>"><i class="bi bi-lightbulb"></i> Pengajuan Judul<?php if ($pendingProposals > 0): ?><span class="nb-menu-badge"><?= $pendingProposals ?></span><?php endif; ?></a></li>
+                <li><a href="<?= BASE_URL ?>/lecturer/work" class="<?= $isActive('/lecturer/work') ?>"><i class="bi bi-journal-text"></i> Tugas Akhir</a></li>
+                <li><a href="<?= BASE_URL ?>/repository" class="<?= $isActive('/repository') ?>"><i class="bi bi-archive"></i> Repository</a></li>
                 <li><a href="<?= BASE_URL ?>/lecturer/students" class="<?= $isActive('/lecturer/students') ?>"><i class="bi bi-people"></i> Mahasiswa Bimbingan</a></li>
                 <li><a href="<?= BASE_URL ?>/lecturer/reviews" class="<?= $isActive('/lecturer/reviews') ?>"><i class="bi bi-clipboard-check"></i> Review</a></li>
                 <li><a href="<?= BASE_URL ?>/lecturer/history" class="<?= $isActive('/lecturer/history') ?>"><i class="bi bi-clock-history"></i> Riwayat</a></li>
             <?php elseif ($userRole === 'student'): ?>
                 <li><a href="<?= BASE_URL ?>/student/dashboard" class="<?= $isActive('/student/dashboard') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                <li><a href="<?= BASE_URL ?>/student/proposals" class="<?= $isActive('/student/proposals') ?>"><i class="bi bi-lightbulb"></i> Pengajuan Judul<?php if ($pendingProposals > 0): ?><span class="nb-menu-badge"><?= $pendingProposals ?></span><?php endif; ?></a></li>
+                <li><a href="<?= BASE_URL ?>/student/work" class="<?= $isActive('/student/work') ?>"><i class="bi bi-journal-text"></i> Tugas Akhir</a></li>
+                <li><a href="<?= BASE_URL ?>/student/recommend" class="<?= $isActive('/student/recommend') ?>"><i class="bi bi-magic"></i> Cari Dosen</a></li>
+                <li><a href="<?= BASE_URL ?>/repository" class="<?= $isActive('/repository') ?>"><i class="bi bi-archive"></i> Repository</a></li>
                 <li><a href="<?= BASE_URL ?>/student/upload" class="<?= $isActive('/student/upload') ?>"><i class="bi bi-cloud-upload"></i> Upload</a></li>
                 <li><a href="<?= BASE_URL ?>/student/history" class="<?= $isActive('/student/history') ?>"><i class="bi bi-clock-history"></i> Riwayat</a></li>
             <?php endif; ?>
@@ -209,6 +226,14 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
                         </span>
                     </div>
                     <div class="nb-user-body">
+                        <!-- Link Ubah Password -->
+<form method="GET" action="<?= BASE_URL ?>/change-password" style="margin-bottom: 0.25rem;">
+    <button type="submit" style="width: 100%; display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.9rem; background: transparent; border: none; color: #374151; font-weight: 600; font-size: 0.875rem; border-radius: 0.6rem; cursor: pointer; transition: all 0.2s; text-align: left; font-family: inherit;">
+        <i class="bi bi-key-fill" style="color: #f59e0b;"></i> Ubah Password
+    </button>
+</form>
+                        
+                        <!-- Tombol Logout -->
                         <form method="POST" action="<?= BASE_URL ?>/logout">
                             <input type="hidden" name="csrf_token" value="<?= e(Csrf::token()) ?>">
                             <button type="submit" class="nb-logout-btn">

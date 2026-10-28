@@ -229,31 +229,11 @@
     window.confirmDialog = confirmDialog;
 
     // === 8. AUTO REFRESH NOTIFICATIONS ===
+    // CATATAN: Fitur polling notifikasi sudah ditangani secara native dan lebih akurat 
+    // oleh script di dalam navbar.php. Kita nonaktifkan di sini untuk mencegah 
+    // duplikasi request dan error 404.
     const initNotificationRefresh = () => {
-        const refreshNotifications = async () => {
-            try {
-                const response = await fetch('/api/notifications/unread-count', {
-                    credentials: 'same-origin'
-                });
-                if (!response.ok) return;
-                
-                const data = await response.json();
-                const badge = document.querySelector('.notification-badge');
-                if (badge) {
-                    if (data.count > 0) {
-                        badge.textContent = data.count > 99 ? '99+' : data.count;
-                        badge.style.display = 'flex';
-                    } else {
-                        badge.style.display = 'none';
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to refresh notifications:', error);
-            }
-        };
-        
-        // Refresh every 30 seconds
-        setInterval(refreshNotifications, 30000);
+    
     };
 
     // === 9. KEYBOARD SHORTCUTS ===

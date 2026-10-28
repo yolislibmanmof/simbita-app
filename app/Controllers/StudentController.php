@@ -148,13 +148,17 @@ class StudentController
             $stmt->execute([$documentId]);
             $nextVersion = (int)$stmt->fetch()['next_version'];
 
-            // Hitung jumlah halaman PDF (Best-effort regex, tanpa library eksternal)
-            $pageCount = 1;
-            if ($mimeType === 'application/pdf' && file_exists($filePath)) {
-                $content = file_get_contents($filePath);
-                preg_match_all('/\/Type\s*\/Page\b/', $content, $matches);
-                $pageCount = count($matches[0]) > 0 ? count($matches[0]) : 1;
-            }
+// Hitung jumlah halaman PDF dengan cara yang lebih aman
+$pageCount = 1;
+if ($mimeType === 'application/pdf' && file_exists($filePath)) {
+    $handle = fopen($filePath, 'rb');
+    if ($handle) {
+        $content = fread($handle, 1048576); // Baca 1MB saja
+        fclose($handle);
+        preg_match_all('/\/Type\s*\/Page\b/', $content, $matches);
+        $pageCount = count($matches[0]) > 0 ? count($matches[0]) : 1;
+    }
+}
 
             // Simpan metadata versi baru (dengan page_count)
             $stmt = $db->prepare('

@@ -54,9 +54,9 @@ class Auth
         return $_SESSION[self::SESSION_KEY] ?? null;
     }
 
-    public static function requireRole(string $role): void
+    public static function requireRole(string ...$roles): void
     {
-        if (!self::check() || self::role() !== $role) {
+        if (!self::check() || !in_array(self::role(), $roles, true)) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }

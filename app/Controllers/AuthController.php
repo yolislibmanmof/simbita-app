@@ -97,4 +97,73 @@ class AuthController
         
         redirect('/login');
     }
+
+    // =================================================================
+    // FITUR UBAH PASSWORD (BARU DITAMBAHKAN)
+    // =================================================================
+    public static function showChangePassword(): void
+    {
+        // Pastikan user sudah login (admin, lecturer, atau student)
+        Auth::requireRole('admin', 'lecturer', 'student');
+        require dirname(__DIR__) . '/Views/auth/change_password.php';
+    }
+
+    public static function changePassword(): void
+    {
+        Auth::requireRole('admin', 'lecturer', 'student');
+        
+        $csrfToken = $_POST['csrf_token'] ?? '';
+        if (!Csrf::verify($csrfToken)) {
+            $_SESSION['flash_error'] = 'Token keamanan tidak valid.';
+            redirect('/change-password');
+        }
+
+        $currentPassword = $_POST['current_password'] ?? '';
+        $newPassword = $_POST['new_password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
+
+        // 1. Validasi input tidak kosong
+        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+            $_SESSION['flash_error'] = 'Semua field wajib diisi.';
+            redirect('/change-password');
+        }
+
+        // 2. Validasi panjang password baru
+        if (strlen($newPassword) < 6) {
+            $_SESSION['flash_error'] = 'Password baru minimal 6 karakter.';
+            redirect('/change-password');
+        }
+
+        // 3. Validasi konfirmasi password
+        if ($newPassword !== $confirmPassword) {
+            $_SESSION['flash_error'] = 'Konfirmasi password tidak cocok.';
+            redirect('/change-password');
+        }
+
+        // 4. Verifikasi password lama
+        $userId = Auth::id();
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT password_hash FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+
+        if (!$user || !password_verify($currentPassword, $user['password_hash'])) {
+            $_SESSION['flash_error'] = 'Password saat ini salah.';
+            redirect('/change-password');
+        }
+
+        // 5. Update password baru dengan hashing yang aman
+        $newHash = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 12]);
+        $stmt = $db->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?');
+        $stmt->execute([$newHash, $userId]);
+
+        // 6. Hapus semua remember_token agar user login ulang di device lain (keamanan ekstra)
+        $db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
+
+        // 7. Berikan pesan sukses dan logout
+        $_SESSION['flash_success'] = '✅ Password berhasil diubah. Silakan login ulang dengan password baru Anda.';
+        
+        // Logout dan arahkan ke halaman login
+        Auth::logout();
+    }
 }

@@ -49,6 +49,12 @@ try {
     require_once dirname(__DIR__) . '/app/Models/User.php';
     require_once dirname(__DIR__) . '/app/Models/AcademicWork.php';
     require_once dirname(__DIR__) . '/app/Models/Notification.php';
+    require_once dirname(__DIR__) . '/app/Models/TitleProposal.php';
+    require_once dirname(__DIR__) . '/app/Models/BimbinganLog.php';
+    require_once dirname(__DIR__) . '/app/Models/Schedule.php';
+    require_once dirname(__DIR__) . '/app/Models/Repository.php';
+    require_once dirname(__DIR__) . '/app/Models/LecturerExpertise.php';
+    require_once dirname(__DIR__) . '/app/Models/Analytics.php';
 } catch (Throwable $e) {
     http_response_code(500);
     die('<h1>⚠️ Fatal Error: Models</h1><pre>' . htmlspecialchars($e->getMessage()) . '</pre>');
@@ -66,8 +72,14 @@ try {
     require_once dirname(__DIR__) . '/app/Controllers/DocumentController.php';
     require_once dirname(__DIR__) . '/app/Controllers/ReviewController.php';
     require_once dirname(__DIR__) . '/app/Controllers/CompareController.php';
-    require_once dirname(__DIR__) . '/app/Controllers/MilestoneController.php';     // ← TAMBAHKAN
+    require_once dirname(__DIR__) . '/app/Controllers/MilestoneController.php';     
     require_once dirname(__DIR__) . '/app/Controllers/NotificationController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/ProposalController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/StudentWorkController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/LecturerWorkController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/RepositoryController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/RecommendController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/ReportController.php';
 } catch (Throwable $e) {
     http_response_code(500);
     die('<h1>⚠️ Fatal Error: Controllers</h1><pre>' . htmlspecialchars($e->getMessage()) . '</pre>');
@@ -170,6 +182,30 @@ try {
         $path === '/logout' 
             => AuthController::logout(),
         
+                $path === '/logout' 
+            => AuthController::logout(),
+        
+        // Ubah Password (Harus login)
+        $path === '/change-password' && $method === 'GET' 
+            => (function() {
+                if (!Auth::check()) {
+                    $_SESSION['flash_error'] = 'Silakan login terlebih dahulu.';
+                    header('Location: ' . BASE_URL . '/login');
+                    exit;
+                }
+                AuthController::showChangePassword();
+            })(),
+        
+        $path === '/change-password' && $method === 'POST' 
+            => (function() {
+                if (!Auth::check()) {
+                    $_SESSION['flash_error'] = 'Silakan login terlebih dahulu.';
+                    header('Location: ' . BASE_URL . '/login');
+                    exit;
+                }
+                AuthController::changePassword();
+            })(),
+
         // Route Lupa Password
         $path === '/forgot-password' && $method === 'GET' 
             => AuthController::showForgotPassword(),
@@ -350,7 +386,36 @@ try {
                 requireRole('student');
                 CompareController::showVersionCompare();
             })(),
+
+        // Proposal Judul (Student)
+        $path === '/student/proposals' && $method === 'GET' 
+            => (function() {
+                requireRole('student');
+                ProposalController::studentIndex();
+            })(),
         
+        $path === '/student/proposals/submit' && $method === 'POST' 
+            => (function() {
+                requireRole('student');
+                ProposalController::studentSubmit();
+            })(),
+        
+        $path === '/student/proposals/respond' && $method === 'POST' 
+            => (function() {
+                requireRole('student');
+                ProposalController::studentRespond();
+            })(),    
+        
+        // Tugas Akhir Mahasiswa (Menu Baru)
+        $path === '/student/work' && $method === 'GET' 
+            => (function() { requireRole('student'); StudentWorkController::show(); })(),
+        $path === '/student/bimbingan/store' && $method === 'POST' 
+            => (function() { requireRole('student'); StudentWorkController::storeBimbingan(); })(),
+        $path === '/student/schedule/book' && $method === 'POST' 
+            => (function() { requireRole('student'); StudentWorkController::bookSlot(); })(),
+        $path === '/student/schedule/cancel' && $method === 'POST' 
+            => (function() { requireRole('student'); StudentWorkController::cancelBooking(); })(),
+
         // =================================================================
         // LECTURER ROUTES (Lecturer Only)
         // =================================================================
@@ -384,6 +449,47 @@ try {
                 LecturerController::history();
             })(),
         
+        // Proposal Judul (Lecturer)
+        $path === '/lecturer/proposals' && $method === 'GET' 
+            => (function() {
+                requireRole('lecturer');
+                ProposalController::lecturerIndex();
+            })(),
+        
+        $path === '/lecturer/proposals/submit' && $method === 'POST' 
+            => (function() {
+                requireRole('lecturer');
+                ProposalController::lecturerSubmit();
+            })(),
+        
+        $path === '/lecturer/proposals/respond' && $method === 'POST' 
+            => (function() {
+                requireRole('lecturer');
+                ProposalController::lecturerRespond();
+            })(),
+
+        // Tugas Akhir Dosen (Menu Baru)
+        $path === '/lecturer/work' && $method === 'GET' 
+            => (function() { requireRole('lecturer'); LecturerWorkController::show(); })(),
+        $path === '/lecturer/bimbingan/store' && $method === 'POST' 
+            => (function() { requireRole('lecturer'); LecturerWorkController::storeBimbingan(); })(),
+        $path === '/lecturer/schedule/slot' && $method === 'POST' 
+            => (function() { requireRole('lecturer'); LecturerWorkController::createSlot(); })(),
+        $path === '/lecturer/schedule/respond' && $method === 'POST' 
+            => (function() { requireRole('lecturer'); LecturerWorkController::respondBooking(); })(),
+
+        // Repository & Recommendation & Report
+        $path === '/repository' && $method === 'GET' 
+            => (function() { requireAuth(); RepositoryController::index(); })(),
+        $path === '/repository/download' && $method === 'GET' 
+            => (function() { requireAuth(); RepositoryController::download(); })(),
+        $path === '/repository/publish' && $method === 'POST' 
+            => (function() { requireRole('lecturer', 'admin'); RepositoryController::publish(); })(),
+        $path === '/student/recommend' && $method === 'GET' 
+            => (function() { requireRole('student'); RecommendController::show(); })(),
+        $path === '/lecturer/work/export' && $method === 'GET' 
+            => (function() { requireRole('lecturer', 'student', 'admin'); ReportController::exportWork(); })(),
+
         // =================================================================
         // DOCUMENT API (Auth Required)
         // =================================================================
@@ -392,7 +498,13 @@ try {
                 requireAuth();
                 DocumentController::upload();
             })(),
-        
+          
+        $path === '/documents/download' && $method === 'GET' 
+            => (function() {
+                requireAuth();
+                DocumentController::download();
+            })(),
+
         $path === '/documents/download' && $method === 'GET' 
             => (function() {
                 requireAuth();

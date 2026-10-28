@@ -14,10 +14,26 @@ declare(strict_types=1);
 
 /**
  * Escape output untuk mencegah XSS
+ * Menerima tipe apa pun (string, int, float, bool, null, array, object)
+ * sehingga aman di strict_types mode untuk semua view.
  */
-function e(?string $string): string
+function e(mixed $value = null): string
 {
-    return htmlspecialchars($string ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    if ($value === null) {
+        return '';
+    }
+    if (is_bool($value)) {
+        $value = $value ? '1' : '0';
+    } elseif (is_array($value) || is_object($value)) {
+        try {
+            $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            $value = (string) $value;
+        }
+    } else {
+        $value = (string) $value;
+    }
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
 /**
@@ -344,9 +360,14 @@ function format_filesize(int $bytes): string
 
 /**
  * Truncate string dengan ellipsis
+ * Menerima tipe apa pun (aman untuk strict_types)
  */
-function truncate(string $text, int $length = 100, string $suffix = '...'): string
+function truncate(mixed $text, int $length = 100, string $suffix = '...'): string
 {
+    if ($text === null) {
+        return '';
+    }
+    $text = (string) $text;
     if (mb_strlen($text) <= $length) return $text;
     return mb_substr($text, 0, $length) . $suffix;
 }
