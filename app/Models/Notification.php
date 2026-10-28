@@ -10,16 +10,22 @@ declare(strict_types=1);
 class Notification
 {
     // ========== TYPE CONSTANTS ==========
-    public const TYPE_SYSTEM     = 'system';
-    public const TYPE_INFO       = 'info';
-    public const TYPE_SUCCESS    = 'success';
-    public const TYPE_WARNING    = 'warning';
-    public const TYPE_DANGER     = 'danger';
-    public const TYPE_REVIEW     = 'review';
-    public const TYPE_UPLOAD     = 'upload';
-    public const TYPE_STATUS     = 'status_change';
-    public const TYPE_DEADLINE   = 'deadline';
-    public const TYPE_MILESTONE  = 'milestone';
+    public const TYPE_SYSTEM         = 'system';
+    public const TYPE_INFO           = 'info';
+    public const TYPE_SUCCESS        = 'success';
+    public const TYPE_WARNING        = 'warning';
+    public const TYPE_DANGER         = 'danger';
+    public const TYPE_REVIEW         = 'review';
+    public const TYPE_UPLOAD         = 'upload';
+    public const TYPE_STATUS         = 'status_change';
+    public const TYPE_DEADLINE       = 'deadline';
+    public const TYPE_MILESTONE      = 'milestone';
+    public const TYPE_COMMENT        = 'comment';
+    public const TYPE_APPROVAL       = 'approval';
+    public const TYPE_TITLE_PROPOSAL = 'title_proposals';
+    public const TYPE_BIMBINGAN      = 'bimbingan_logs';
+    public const TYPE_BOOKING        = 'bookings';
+    public const TYPE_WORK           = 'academic_works';
 
     public const ALL_TYPES = [
         self::TYPE_SYSTEM,
@@ -32,6 +38,12 @@ class Notification
         self::TYPE_STATUS,
         self::TYPE_DEADLINE,
         self::TYPE_MILESTONE,
+        self::TYPE_COMMENT,
+        self::TYPE_APPROVAL,
+        self::TYPE_TITLE_PROPOSAL,
+        self::TYPE_BIMBINGAN,
+        self::TYPE_BOOKING,
+        self::TYPE_WORK,
     ];
 
     // Default limits

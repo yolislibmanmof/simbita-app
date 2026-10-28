@@ -1274,7 +1274,7 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
         'use strict';
         
         // Konfigurasi PDF
-        const pdfUrl = "<?= !empty($documents) ? e(BASE_URL . '/documents/download?id=' . $documents[0]['id']) : '' ?>";
+        const pdfUrl = "<?= !empty($documents) ? e(BASE_URL . '/pdf.php?id=' . $documents[0]['id']) : '' ?>";
         const versionId = <?= !empty($documents) ? (int)$documents[0]['id'] : 0 ?>;
         let pdfDoc = null, pageNum = 1, pageRendering = false, pageNumPending = null, scale = 1.0;
         let currentAnnotations = [];
@@ -1302,13 +1302,39 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
             });
         };
 
-        // Load PDF & Anotasi Awal
+        const loadPdfSafe = (url) => {
+            const grab = (u) => fetch(u, { credentials: 'same-origin' }).then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.arrayBuffer();
+            });
+            return grab(url).then(buf => {
+                if (buf.byteLength > 0) return buf;
+                // Cadangan otomatis: minta versi base64
+                return fetch(url + (url.includes('?') ? '&' : '?') + 'enc=base64', { credentials: 'same-origin' })
+                    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+                    .then(b64 => {
+                        const bin = atob(b64.trim());
+                        const arr = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                        return arr.buffer;
+                    });
+            }).then(buf => {
+                if (!buf.byteLength) throw new Error('Server mengirim PDF kosong');
+                return pdfjsLib.getDocument({ data: buf }).promise;
+            });
+        };
+
+            
+        // ⭐ PANGGIL loadPdfSafe untuk memuat PDF
         if (pdfUrl) {
-            pdfjsLib.getDocument(pdfUrl).promise.then((pdf) => {
+            loadPdfSafe(pdfUrl).then((pdf) => {
                 pdfDoc = pdf;
                 renderPage(pageNum);
                 fetchAnnotations();
-            }).catch(err => console.error('PDF Load Error:', err));
+            }).catch(err => {
+                console.error('PDF Load Error:', err);
+                alert('Gagal memuat PDF. Silakan refresh halaman.');
+            });
         }
 
         // Navigasi & Zoom
@@ -1361,10 +1387,19 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
         document.getElementById('saveAnnotation')?.addEventListener('click', async () => {
             const comment = document.getElementById('popupComment').value.trim();
             const priority = document.querySelector('input[name="priority"]:checked')?.value || 'important';
-            if (!comment) { alert('Komentar tidak boleh kosong'); return; }
             
+            if (!comment) { 
+                alert('Komentar tidak boleh kosong'); 
+                return; 
+            }
+            
+            if (!versionId) {
+                alert('Version ID tidak ditemukan');
+                return;
+            }
+
             const formData = new FormData();
-            formData.append('csrf_token', document.querySelector('[name="csrf_token"]').value);
+            formData.append('csrf_token', document.querySelector('[name="csrf_token"]')?.value || '');
             formData.append('version_id', versionId);
             formData.append('page_number', pendingClick.page);
             formData.append('pos_x_pct', pendingClick.x);
@@ -1373,14 +1408,53 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
             formData.append('priority', priority);
 
             try {
-                const res = await fetch('<?= BASE_URL ?>/api/comments/save', { method: 'POST', body: formData });
-                const data = await res.json();
+                console.log('Saving annotation...', {
+                    url: '<?= BASE_URL ?>/api/comments/save',
+                    versionId,
+                    page: pendingClick.page,
+                    comment
+                });
+
+                const res = await fetch('<?= BASE_URL ?>/api/comments/save', { 
+                    method: 'POST', 
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+
+                console.log('Response status:', res.status);
+                
+                // Baca response text dulu untuk debug
+                const text = await res.text();
+                console.log('Response text:', text);
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON:', e);
+                    throw new Error('Server response bukan JSON: ' + text.substring(0, 100));
+                }
+
                 if (data.success) {
-                    currentAnnotations.push({ id: data.id, page_number: pendingClick.page, pos_x_pct: pendingClick.x, pos_y_pct: pendingClick.y, comment, priority, author_name: 'Anda' });
+                    currentAnnotations.push({ 
+                        id: data.id, 
+                        page_number: pendingClick.page, 
+                        pos_x_pct: pendingClick.x, 
+                        pos_y_pct: pendingClick.y, 
+                        comment, 
+                        priority, 
+                        author_name: 'Anda' 
+                    });
                     renderAnnotationsOnCurrentPage();
                     document.getElementById('annotationPopup').classList.remove('active');
-                } else { alert('Gagal menyimpan: ' + (data.error || 'Unknown')); }
-            } catch (e) { alert('Error jaringan saat menyimpan anotasi'); }
+                    document.getElementById('popupComment').value = '';
+                } else {
+                    alert('Gagal menyimpan: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) { 
+                console.error('Save annotation error:', e);
+                alert('Error jaringan saat menyimpan anotasi: ' + e.message); 
+            }
         });
 
         document.getElementById('cancelAnnotation')?.addEventListener('click', () => { document.getElementById('annotationPopup').classList.remove('active'); });

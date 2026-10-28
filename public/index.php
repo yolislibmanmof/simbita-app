@@ -6,30 +6,22 @@ session_start();
  * SIMBITA - MAIN ENTRY POINT
  * FINAL ULTRA PREMIUM - ENTERPRISE GRADE
  * =====================================================================
- * 
- * File ini adalah pintu masuk aplikasi. Menangani:
- * 1. Loading semua file core (dengan require_once anti-redeclare)
- * 2. Inisialisasi sistem (session, auth)
- * 3. Routing request ke controller yang sesuai
- * 4. Error handling & 404 page
  */
 
 // =====================================================================
 // 0. ERROR REPORTING (Development Mode)
 // =====================================================================
-// Ganti ke error_reporting(0) saat production
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('log_errors', '1');
 ini_set('error_log', dirname(__DIR__) . '/logs/php_error.log');
 
-// Pastikan folder logs ada
 if (!is_dir(dirname(__DIR__) . '/logs')) {
     @mkdir(dirname(__DIR__) . '/logs', 0755, true);
 }
 
 // =====================================================================
-// 1. MUAT KONFIGURASI & CORE (require_once = anti double-load)
+// 1. MUAT KONFIGURASI & CORE
 // =====================================================================
 try {
     require_once dirname(__DIR__) . '/config/config.php';
@@ -43,7 +35,7 @@ try {
 }
 
 // =====================================================================
-// 2. MUAT MODELS (require_once)
+// 2. MUAT MODELS
 // =====================================================================
 try {
     require_once dirname(__DIR__) . '/app/Models/User.php';
@@ -61,7 +53,7 @@ try {
 }
 
 // =====================================================================
-// 3. MUAT CONTROLLERS (require_once)
+// 3. MUAT CONTROLLERS
 // =====================================================================
 try {
     require_once dirname(__DIR__) . '/app/Controllers/AuthController.php';
@@ -72,7 +64,7 @@ try {
     require_once dirname(__DIR__) . '/app/Controllers/DocumentController.php';
     require_once dirname(__DIR__) . '/app/Controllers/ReviewController.php';
     require_once dirname(__DIR__) . '/app/Controllers/CompareController.php';
-    require_once dirname(__DIR__) . '/app/Controllers/MilestoneController.php';     
+    require_once dirname(__DIR__) . '/app/Controllers/MilestoneController.php';
     require_once dirname(__DIR__) . '/app/Controllers/NotificationController.php';
     require_once dirname(__DIR__) . '/app/Controllers/ProposalController.php';
     require_once dirname(__DIR__) . '/app/Controllers/StudentWorkController.php';
@@ -92,28 +84,21 @@ try {
     Auth::start();
 } catch (Throwable $e) {
     error_log('[Auth::start] ' . $e->getMessage());
-    // Fallback: continue tanpa session (untuk halaman publik)
 }
 
 // =====================================================================
 // 5. ROUTING ENGINE
 // =====================================================================
-
-// Ambil path dari URL
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 
-// Strip base path jika aplikasi di-subfolder (misal: /simbita-app/public)
 $basePath = parse_url(BASE_URL, PHP_URL_PATH);
 if ($basePath && $basePath !== '/' && $basePath !== false) {
     $path = preg_replace('#^' . preg_quote($basePath, '#') . '#', '', $path);
 }
 
-// Normalisasi path
 $path = $path ?: '/';
 $path = rtrim($path, '/');
-if ($path === '') {
-    $path = '/';
-}
+if ($path === '') $path = '/';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $isAjax = is_ajax();
@@ -121,11 +106,6 @@ $isAjax = is_ajax();
 // =====================================================================
 // 6. MIDDLEWARE HELPER
 // =====================================================================
-
-/**
- * Require auth sebelum mengakses route
- * @param string $fallback Redirect URL jika belum login
- */
 function requireAuth(string $fallback = '/login'): void
 {
     if (!Auth::check()) {
@@ -135,17 +115,11 @@ function requireAuth(string $fallback = '/login'): void
     }
 }
 
-/**
- * Require role tertentu
- * @param string ...$roles Role yang diizinkan
- */
 function requireRole(string ...$roles): void
 {
     requireAuth();
     if (!in_array(Auth::role(), $roles, true)) {
         flash_set('error', 'Anda tidak memiliki izin untuk mengakses halaman ini.');
-        
-        // Redirect ke dashboard sesuai role
         $role = Auth::role();
         $fallback = match ($role) {
             'admin'    => '/admin/dashboard',
@@ -172,9 +146,7 @@ try {
         // AUTH ROUTES (Guest Only)
         // =================================================================
         $path === '/login' && $method === 'GET' 
-            => (function() {
-                AuthController::showLogin();
-            })(),
+            => AuthController::showLogin(),
         
         $path === '/login' && $method === 'POST' 
             => AuthController::login(),
@@ -182,10 +154,6 @@ try {
         $path === '/logout' 
             => AuthController::logout(),
         
-                $path === '/logout' 
-            => AuthController::logout(),
-        
-        // Ubah Password (Harus login)
         $path === '/change-password' && $method === 'GET' 
             => (function() {
                 if (!Auth::check()) {
@@ -206,7 +174,6 @@ try {
                 AuthController::changePassword();
             })(),
 
-        // Route Lupa Password
         $path === '/forgot-password' && $method === 'GET' 
             => AuthController::showForgotPassword(),
         
@@ -214,199 +181,101 @@ try {
             => AuthController::processForgotPassword(),
         
         // =================================================================
-        // ADMIN ROUTES (Admin Only)
+        // ADMIN ROUTES
         // =================================================================
-        
-        // Dashboard
         $path === '/admin/dashboard' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                DashboardController::admin();
-            })(),
+            => (function() { requireRole('admin'); DashboardController::admin(); })(),
         
-        // Students CRUD
         $path === '/admin/students' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::students();
-            })(),
+            => (function() { requireRole('admin'); AdminController::students(); })(),
         
         $path === '/admin/students/create' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::createStudent();
-            })(),
+            => (function() { requireRole('admin'); AdminController::createStudent(); })(),
         
         $path === '/admin/students/create' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::storeStudent();
-            })(),
+            => (function() { requireRole('admin'); AdminController::storeStudent(); })(),
         
         $path === '/admin/students/edit' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::editStudent();
-            })(),
+            => (function() { requireRole('admin'); AdminController::editStudent(); })(),
         
         $path === '/admin/students/edit' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::updateStudent();
-            })(),
+            => (function() { requireRole('admin'); AdminController::updateStudent(); })(),
         
         $path === '/admin/students/delete' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::deleteStudent();
-            })(),
+            => (function() { requireRole('admin'); AdminController::deleteStudent(); })(),
         
-        // Lecturers CRUD
         $path === '/admin/lecturers' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::lecturers();
-            })(),
+            => (function() { requireRole('admin'); AdminController::lecturers(); })(),
         
         $path === '/admin/lecturers/create' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::createLecturer();
-            })(),
+            => (function() { requireRole('admin'); AdminController::createLecturer(); })(),
         
         $path === '/admin/lecturers/create' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::storeLecturer();
-            })(),
+            => (function() { requireRole('admin'); AdminController::storeLecturer(); })(),
         
         $path === '/admin/lecturers/edit' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::editLecturer();
-            })(),
+            => (function() { requireRole('admin'); AdminController::editLecturer(); })(),
         
         $path === '/admin/lecturers/edit' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::updateLecturer();
-            })(),
+            => (function() { requireRole('admin'); AdminController::updateLecturer(); })(),
         
         $path === '/admin/lecturers/delete' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::deleteLecturer();
-            })(),
+            => (function() { requireRole('admin'); AdminController::deleteLecturer(); })(),
         
-        // Works CRUD
         $path === '/admin/works' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::works();
-            })(),
+            => (function() { requireRole('admin'); AdminController::works(); })(),
         
         $path === '/admin/works/create' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::createWork();
-            })(),
+            => (function() { requireRole('admin'); AdminController::createWork(); })(),
         
         $path === '/admin/works/create' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::storeWork();
-            })(),
+            => (function() { requireRole('admin'); AdminController::storeWork(); })(),
         
         $path === '/admin/works/edit' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::editWork();
-            })(),
+            => (function() { requireRole('admin'); AdminController::editWork(); })(),
         
         $path === '/admin/works/edit' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::updateWork();
-            })(),
+            => (function() { requireRole('admin'); AdminController::updateWork(); })(),
         
         $path === '/admin/works/delete' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                AdminController::deleteWork();
-            })(),
+            => (function() { requireRole('admin'); AdminController::deleteWork(); })(),
         
         $path === '/admin/work' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::showWork();
-            })(),
+            => (function() { requireRole('admin'); AdminController::showWork(); })(),
         
-        // Route Audit Log Admin
         $path === '/admin/logs' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::logs();
-            })(),
+            => (function() { requireRole('admin'); AdminController::logs(); })(),
         
         $path === '/admin/logs/export' && $method === 'GET' 
-            => (function() {
-                requireRole('admin');
-                AdminController::exportLogs();
-            })(),
+            => (function() { requireRole('admin'); AdminController::exportLogs(); })(),
         
         // =================================================================
-        // STUDENT ROUTES (Student Only)
+        // STUDENT ROUTES
         // =================================================================
         $path === '/student/dashboard' && $method === 'GET' 
-            => (function() {
-                requireRole('student');
-                DashboardController::student();
-            })(),
+            => (function() { requireRole('student'); DashboardController::student(); })(),
         
         $path === '/student/upload' && $method === 'GET' 
-            => (function() {
-                requireRole('student');
-                StudentController::uploadForm();
-            })(),
+            => (function() { requireRole('student'); StudentController::uploadForm(); })(),
         
         $path === '/student/upload' && $method === 'POST' 
-            => (function() {
-                requireRole('student');
-                StudentController::upload();
-            })(),
+            => (function() { requireRole('student'); StudentController::upload(); })(),
         
         $path === '/student/history' && $method === 'GET' 
-            => (function() {
-                requireRole('student');
-                StudentController::history();
-            })(),
+            => (function() { requireRole('student'); StudentController::history(); })(),
         
         $path === '/student/version-compare' && $method === 'GET' 
-            => (function() {
-                requireRole('student');
-                CompareController::showVersionCompare();
-            })(),
+            => (function() { requireRole('student'); CompareController::showVersionCompare(); })(),
 
-        // Proposal Judul (Student)
         $path === '/student/proposals' && $method === 'GET' 
-            => (function() {
-                requireRole('student');
-                ProposalController::studentIndex();
-            })(),
+            => (function() { requireRole('student'); ProposalController::studentIndex(); })(),
         
         $path === '/student/proposals/submit' && $method === 'POST' 
-            => (function() {
-                requireRole('student');
-                ProposalController::studentSubmit();
-            })(),
+            => (function() { requireRole('student'); ProposalController::studentSubmit(); })(),
         
         $path === '/student/proposals/respond' && $method === 'POST' 
-            => (function() {
-                requireRole('student');
-                ProposalController::studentRespond();
-            })(),    
+            => (function() { requireRole('student'); ProposalController::studentRespond(); })(),    
         
-        // Tugas Akhir Mahasiswa (Menu Baru)
         $path === '/student/work' && $method === 'GET' 
             => (function() { requireRole('student'); StudentWorkController::show(); })(),
         $path === '/student/bimbingan/store' && $method === 'POST' 
@@ -417,58 +286,32 @@ try {
             => (function() { requireRole('student'); StudentWorkController::cancelBooking(); })(),
 
         // =================================================================
-        // LECTURER ROUTES (Lecturer Only)
+        // LECTURER ROUTES
         // =================================================================
         $path === '/lecturer/dashboard' && $method === 'GET' 
-            => (function() {
-                requireRole('lecturer');
-                DashboardController::lecturer();
-            })(),
+            => (function() { requireRole('lecturer'); DashboardController::lecturer(); })(),
         
         $path === '/lecturer/students' && $method === 'GET' 
-            => (function() {
-                requireRole('lecturer');
-                LecturerController::students();
-            })(),
+            => (function() { requireRole('lecturer'); LecturerController::students(); })(),
         
         $path === '/lecturer/review' && $method === 'GET' 
-            => (function() {
-                requireRole('lecturer');
-                LecturerController::review();
-            })(),
+            => (function() { requireRole('lecturer'); LecturerController::review(); })(),
         
         $path === '/lecturer/reviews' && $method === 'GET' 
-            => (function() {
-                requireRole('lecturer');
-                LecturerController::reviews();
-            })(),
+            => (function() { requireRole('lecturer'); LecturerController::reviews(); })(),
         
         $path === '/lecturer/history' && $method === 'GET' 
-            => (function() {
-                requireRole('lecturer');
-                LecturerController::history();
-            })(),
+            => (function() { requireRole('lecturer'); LecturerController::history(); })(),
         
-        // Proposal Judul (Lecturer)
         $path === '/lecturer/proposals' && $method === 'GET' 
-            => (function() {
-                requireRole('lecturer');
-                ProposalController::lecturerIndex();
-            })(),
+            => (function() { requireRole('lecturer'); ProposalController::lecturerIndex(); })(),
         
         $path === '/lecturer/proposals/submit' && $method === 'POST' 
-            => (function() {
-                requireRole('lecturer');
-                ProposalController::lecturerSubmit();
-            })(),
+            => (function() { requireRole('lecturer'); ProposalController::lecturerSubmit(); })(),
         
         $path === '/lecturer/proposals/respond' && $method === 'POST' 
-            => (function() {
-                requireRole('lecturer');
-                ProposalController::lecturerRespond();
-            })(),
+            => (function() { requireRole('lecturer'); ProposalController::lecturerRespond(); })(),
 
-        // Tugas Akhir Dosen (Menu Baru)
         $path === '/lecturer/work' && $method === 'GET' 
             => (function() { requireRole('lecturer'); LecturerWorkController::show(); })(),
         $path === '/lecturer/bimbingan/store' && $method === 'POST' 
@@ -478,7 +321,9 @@ try {
         $path === '/lecturer/schedule/respond' && $method === 'POST' 
             => (function() { requireRole('lecturer'); LecturerWorkController::respondBooking(); })(),
 
-        // Repository & Recommendation & Report
+        // =================================================================
+        // REPOSITORY & RECOMMENDATION & REPORT
+        // =================================================================
         $path === '/repository' && $method === 'GET' 
             => (function() { requireAuth(); RepositoryController::index(); })(),
         $path === '/repository/download' && $method === 'GET' 
@@ -491,94 +336,49 @@ try {
             => (function() { requireRole('lecturer', 'student', 'admin'); ReportController::exportWork(); })(),
 
         // =================================================================
-        // DOCUMENT API (Auth Required)
+        // DOCUMENT API
         // =================================================================
         $path === '/api/documents/upload' && $method === 'POST' 
-            => (function() {
-                requireAuth();
-                DocumentController::upload();
-            })(),
-          
+            => (function() { requireAuth(); DocumentController::upload(); })(),
+        
         $path === '/documents/download' && $method === 'GET' 
-            => (function() {
-                requireAuth();
-                DocumentController::download();
-            })(),
+            => (function() { requireAuth(); DocumentController::download(); })(),
 
-        $path === '/documents/download' && $method === 'GET' 
-            => (function() {
-                requireAuth();
-                DocumentController::download();
-            })(),
-        
         // =================================================================
-        // REVIEW & COMMENTS API (Tindak Lanjut Revisi + Anotasi)
+        // REVIEW & COMMENTS API
         // =================================================================
-        
-        // GET /api/comments?version_id=X — Ambil semua anotasi per versi
         $path === '/api/comments' && $method === 'GET' 
-            => (function() {
-                requireAuth();
-                ReviewController::getComments();
-            })(),
+            => (function() { requireAuth(); ReviewController::getComments(); })(),
 
-        // POST /api/comments/save — Simpan anotasi baru di PDF
         $path === '/api/comments/save' && $method === 'POST' 
-            => (function() {
-                requireRole('lecturer', 'admin');
-                ReviewController::saveAnnotation();
-            })(),
+            => (function() { requireRole('lecturer', 'admin'); ReviewController::saveAnnotation(); })(),
 
-        // POST /api/comments/resolve — Tandai komentar selesai/belum (FITUR BARU)
         $path === '/api/comments/resolve' && $method === 'POST' 
-            => (function() {
-                requireAuth();
-                ReviewController::resolveComment();
-            })(),
+            => (function() { requireAuth(); ReviewController::resolveComment(); })(),
 
-        // POST /api/reviews/decide — Submit keputusan final + checklist
         $path === '/api/reviews/decide' && $method === 'POST' 
-            => (function() {
-                requireRole('lecturer', 'admin');
-                ReviewController::decide();
-            })(),
+            => (function() { requireRole('lecturer', 'admin'); ReviewController::decide(); })(),
         
         // =================================================================
-        // MILESTONE API (Admin Only for scan)
+        // MILESTONE API
         // =================================================================
         $path === '/api/milestones/scan' && $method === 'POST' 
-            => (function() {
-                requireRole('admin');
-                MilestoneController::scanDeadlines();
-            })(),
+            => (function() { requireRole('admin'); MilestoneController::scanDeadlines(); })(),
 
         // =================================================================
-        // =================================================================
-        // NOTIFICATIONS (Auth Required)
+        // NOTIFICATIONS
         // =================================================================
         $path === '/notifications' && $method === 'GET' 
-            => (function() {
-                requireAuth();
-                NotificationController::showNotifications();
-            })(),
+            => (function() { requireAuth(); NotificationController::showNotifications(); })(),
         
         $path === '/api/notifications/count' && $method === 'GET' 
-            => (function() {
-                requireAuth();
-                NotificationController::getUnreadCount();
-            })(),
+            => (function() { requireAuth(); NotificationController::getUnreadCount(); })(),
         
         $path === '/api/notifications/read-all' && $method === 'POST' 
-            => (function() {
-                requireAuth();
-                NotificationController::markAllRead();
-            })(),
+            => (function() { requireAuth(); NotificationController::markAllRead(); })(),
         
         $path === '/api/notifications/read' && $method === 'POST' 
-            => (function() {
-                requireAuth();
-                NotificationController::markOneRead();
-            })(),
+            => (function() { requireAuth(); NotificationController::markOneRead(); })(),
         
         // =================================================================
         // 404 - NOT FOUND
@@ -587,20 +387,14 @@ try {
     };
 
 } catch (Throwable $e) {
-    // Log error untuk debugging
     error_log("[{$method} {$path}] " . $e->getMessage());
     
-    // Handle 404
     if ($e->getCode() === 404) {
         http_response_code(404);
-        
-        // Untuk AJAX, return JSON
         if ($isAjax) {
             json_response(['error' => 'Not Found', 'path' => $path], 404);
             exit;
         }
-        
-        // Untuk web, tampilkan 404 page yang lebih informatif
         ?>
         <!DOCTYPE html>
         <html lang="id">
@@ -619,51 +413,19 @@ try {
                     justify-content: center;
                     color: white;
                 }
-                .container {
-                    text-align: center;
-                    padding: 2rem;
-                    max-width: 500px;
-                }
-                h1 {
-                    font-size: 6rem;
-                    font-weight: 800;
-                    margin-bottom: 1rem;
-                    text-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                }
-                h2 {
-                    font-size: 1.5rem;
-                    margin-bottom: 1rem;
-                    opacity: 0.9;
-                }
-                p {
-                    font-size: 1rem;
-                    margin-bottom: 2rem;
-                    opacity: 0.8;
-                    line-height: 1.6;
-                }
+                .container { text-align: center; padding: 2rem; max-width: 500px; }
+                h1 { font-size: 6rem; font-weight: 800; margin-bottom: 1rem; text-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+                h2 { font-size: 1.5rem; margin-bottom: 1rem; opacity: 0.9; }
+                p { font-size: 1rem; margin-bottom: 2rem; opacity: 0.8; line-height: 1.6; }
                 .btn {
-                    display: inline-block;
-                    padding: 0.875rem 2rem;
-                    background: white;
-                    color: #667eea;
-                    text-decoration: none;
-                    border-radius: 0.75rem;
-                    font-weight: 700;
-                    transition: all 0.3s;
+                    display: inline-block; padding: 0.875rem 2rem; background: white; color: #667eea;
+                    text-decoration: none; border-radius: 0.75rem; font-weight: 700; transition: all 0.3s;
                     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
                 }
-                .btn:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-                }
+                .btn:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(0,0,0,0.3); }
                 .path {
-                    margin-top: 2rem;
-                    padding: 1rem;
-                    background: rgba(255,255,255,0.1);
-                    border-radius: 0.5rem;
-                    font-family: 'Courier New', monospace;
-                    font-size: 0.875rem;
-                    word-break: break-all;
+                    margin-top: 2rem; padding: 1rem; background: rgba(255,255,255,0.1);
+                    border-radius: 0.5rem; font-family: 'Courier New', monospace; font-size: 0.875rem;
                 }
             </style>
         </head>
@@ -672,12 +434,8 @@ try {
                 <h1>404</h1>
                 <h2>Halaman Tidak Ditemukan</h2>
                 <p>Maaf, halaman yang Anda cari tidak ada atau telah dipindahkan.</p>
-                <a href="<?= e(BASE_URL) ?>/" class="btn">
-                    ← Kembali ke Beranda
-                </a>
-                <div class="path">
-                    <strong>Path:</strong> <?= e($path) ?>
-                </div>
+                <a href="<?= e(BASE_URL) ?>/" class="btn">← Kembali ke Beranda</a>
+                <div class="path"><strong>Path:</strong> <?= e($path) ?></div>
             </div>
         </body>
         </html>
@@ -685,10 +443,7 @@ try {
         exit;
     }
     
-    // Handle 500 error
     http_response_code(500);
-    
-    // Untuk AJAX, return JSON
     if ($isAjax) {
         json_response([
             'error' => 'Internal Server Error',
@@ -696,8 +451,6 @@ try {
         ], 500);
         exit;
     }
-    
-    // Untuk web, tampilkan error page
     ?>
     <!DOCTYPE html>
     <html lang="id">
@@ -710,62 +463,26 @@ try {
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                padding: 2rem;
+                min-height: 100vh; display: flex; align-items: center; justify-content: center;
+                color: white; padding: 2rem;
             }
-            .container {
-                text-align: center;
-                max-width: 600px;
-            }
-            h1 {
-                font-size: 5rem;
-                font-weight: 800;
-                margin-bottom: 1rem;
-            }
-            h2 {
-                font-size: 1.5rem;
-                margin-bottom: 1rem;
-                opacity: 0.9;
-            }
-            p {
-                margin-bottom: 2rem;
-                opacity: 0.8;
-                line-height: 1.6;
-            }
+            .container { text-align: center; max-width: 600px; }
+            h1 { font-size: 5rem; font-weight: 800; margin-bottom: 1rem; }
+            h2 { font-size: 1.5rem; margin-bottom: 1rem; opacity: 0.9; }
+            p { margin-bottom: 2rem; opacity: 0.8; line-height: 1.6; }
             .error-box {
-                background: rgba(0,0,0,0.3);
-                padding: 1.5rem;
-                border-radius: 0.75rem;
-                text-align: left;
-                margin-bottom: 2rem;
-                overflow-x: auto;
+                background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 0.75rem;
+                text-align: left; margin-bottom: 2rem; overflow-x: auto;
             }
             .error-box pre {
-                font-family: 'Courier New', monospace;
-                font-size: 0.8rem;
-                line-height: 1.5;
-                white-space: pre-wrap;
-                word-break: break-word;
+                font-family: 'Courier New', monospace; font-size: 0.8rem;
+                line-height: 1.5; white-space: pre-wrap; word-break: break-word;
             }
             .btn {
-                display: inline-block;
-                padding: 0.875rem 2rem;
-                background: white;
-                color: #ef4444;
-                text-decoration: none;
-                border-radius: 0.75rem;
-                font-weight: 700;
-                transition: all 0.3s;
-                margin: 0 0.5rem;
+                display: inline-block; padding: 0.875rem 2rem; background: white; color: #ef4444;
+                text-decoration: none; border-radius: 0.75rem; font-weight: 700; transition: all 0.3s; margin: 0 0.5rem;
             }
-            .btn:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            }
+            .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         </style>
     </head>
     <body>
@@ -773,18 +490,16 @@ try {
             <h1>500</h1>
             <h2>⚠️ Internal Server Error</h2>
             <p>Terjadi kesalahan pada server. Silakan coba lagi beberapa saat.</p>
-            
             <?php if (defined('APP_DEBUG') && APP_DEBUG): ?>
-    <div class="error-box">
-                    <pre><strong>Error:</strong> <?= e($e->getMessage()) ?>
+            <div class="error-box">
+                <pre><strong>Error:</strong> <?= e($e->getMessage()) ?>
 
 <strong>File:</strong> <?= e($e->getFile()) ?>:<?= $e->getLine() ?>
 
 <strong>Trace:</strong>
 <?= e($e->getTraceAsString()) ?></pre>
-                </div>
+            </div>
             <?php endif; ?>
-            
             <a href="<?= e(BASE_URL) ?>/" class="btn">← Beranda</a>
             <a href="javascript:history.back()" class="btn">← Kembali</a>
         </div>
