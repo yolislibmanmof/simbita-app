@@ -1,9 +1,34 @@
 <?php
 declare(strict_types=1);
 
+// =========================================================================
+// 0. ENVIRONMENT LOADER (Custom .env.php implementation)
+// =========================================================================
+$envFile = dirname(__DIR__) . '/.env.php';
+if (file_exists($envFile)) {
+    $envVars = require $envFile;
+    if (is_array($envVars)) {
+        foreach ($envVars as $key => $value) {
+            // Hanya set jika belum ada di environment server (memungkinkan override dari PHP-FPM/Apache)
+            if (getenv($key) === false) {
+                putenv("$key=$value");
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
+            }
+        }
+    }
+}
+
+// Helper function untuk mengambil env dengan fallback
+$env = function(string $key, $default = null) {
+    $value = getenv($key);
+    return $value !== false ? $value : $default;
+};
+
 // 1. ERROR REPORTING
-$debugValue = getenv('APP_DEBUG');
-define('APP_DEBUG', filter_var($debugValue === false ? 'false' : $debugValue, FILTER_VALIDATE_BOOLEAN));
+// Menggunakan FILTER_NULL_ON_FAILURE agar parsing boolean lebih aman dan presisi
+$debugValue = $env('APP_DEBUG', 'false');
+define('APP_DEBUG', filter_var($debugValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false);
 
 error_reporting(E_ALL);
 ini_set('display_errors', APP_DEBUG ? '1' : '0');
@@ -19,17 +44,18 @@ if (!is_dir($logDirectory) && !mkdir($logDirectory, 0755, true) && !is_dir($logD
 date_default_timezone_set('Asia/Jakarta');
 
 // 3. BASE URL & APP INFO
-define('BASE_URL', 'http://localhost/simbita-app/public');
-define('APP_NAME', 'SIMBITA');
+define('BASE_URL', $env('APP_URL', 'http://localhost/simbita-app/public'));
+define('APP_NAME', $env('APP_NAME', 'SIMBITA'));
 define('APP_VERSION', '1.0.0');
 
 // 4. DATABASE CONFIGURATION
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'simbita_db');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_HOST', $env('DB_HOST', 'localhost'));
+define('DB_NAME', $env('DB_NAME', 'simbita_db'));
+define('DB_USER', $env('DB_USER', 'root'));
+// PENTING: Gunakan cek !== false agar password kosong ('') tidak dianggap sebagai nilai yang tidak ada
+define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : ''); 
 define('DB_CHARSET', 'utf8mb4');
-define('DB_PORT', 3306);
+define('DB_PORT', (int)$env('DB_PORT', 3306));
 
 // 5. FILE UPLOAD CONFIGURATION
 define('STORAGE_PATH', dirname(__DIR__) . '/storage/documents');

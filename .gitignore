@@ -1,0 +1,10 @@
+# Abaikan semua file PDF di storage
+/storage/documents/*
+!/storage/documents/.gitkeep
+
+# Abaikan semua log
+/logs/*
+!/logs/.gitkeep
+
+# Abaikan file environment
+.env

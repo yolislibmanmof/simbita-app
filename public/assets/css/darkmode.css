@@ -1,0 +1,109 @@
+/* =========================================================
+   SIMBITA DARK MODE - Global Override
+   Aktif melalui: <html data-theme="dark">
+   ========================================================= */
+html[data-theme="dark"] {
+    --gray-50:#0b1220; --gray-100:#152238; --gray-200:#24344d; --gray-300:#33465e;
+    --gray-400:#7d8da3; --gray-500:#94a3b8; --gray-600:#c3cedd; --gray-700:#dbe4f0;
+    --gray-800:#e2e8f0; --gray-900:#f1f5f9;
+}
+html[data-theme="dark"] body { background:#0f172a; color:#e2e8f0; }
+html[data-theme="dark"] .container { color:#e2e8f0; }
+
+/* --- Navbar --- */
+html[data-theme="dark"] .nb-bar { background:rgba(15,23,42,0.92); border-bottom-color:#1e293b; }
+html[data-theme="dark"] .nb-menu a { color:#c3cedd; }
+html[data-theme="dark"] .nb-menu a:hover { background:#1e293b; color:#f1f5f9; }
+html[data-theme="dark"] .nb-menu a.nb-active { background:rgba(99,102,241,0.16); color:#a5b4fc; }
+html[data-theme="dark"] .nb-menu-trigger { color:#c3cedd; }
+html[data-theme="dark"] .nb-menu-trigger:hover { background:#1e293b; color:#f1f5f9; }
+html[data-theme="dark"] .nb-dropdown.nb-is-open .nb-menu-trigger { background:rgba(99,102,241,0.16); color:#a5b4fc; }
+html[data-theme="dark"] .nb-icon-btn, html[data-theme="dark"] .nb-user-btn { background:#1e293b; border-color:#334155; color:#c3cedd; }
+html[data-theme="dark"] .nb-icon-btn:hover, html[data-theme="dark"] .nb-user-btn:hover { background:#24344d; }
+html[data-theme="dark"] .nb-dropdown-menu { background:#1e293b; border-color:#334155; }
+html[data-theme="dark"] .nb-navmenu a { color:#c3cedd; }
+html[data-theme="dark"] .nb-navmenu a:hover { background:#24344d; }
+html[data-theme="dark"] .nb-navmenu a.nb-active { background:rgba(99,102,241,0.16); color:#a5b4fc; }
+html[data-theme="dark"] .nb-menu-head, html[data-theme="dark"] .nb-user-head, html[data-theme="dark"] .nb-notif-footer { background:#16203a; border-color:#24344d; }
+html[data-theme="dark"] .nb-notif-item { border-color:#24344d; }
+html[data-theme="dark"] .nb-notif-item:hover { background:#24344d; }
+html[data-theme="dark"] .nb-notif-item.nb-unread { background:rgba(99,102,241,0.12); }
+html[data-theme="dark"] .nb-user-fullname, html[data-theme="dark"] .nb-notif-title, html[data-theme="dark"] .nb-menu-head strong { color:#f1f5f9; }
+html[data-theme="dark"] .nb-logout-btn:hover { background:rgba(239,68,68,0.15); }
+
+/* --- Kartu & permukaan (seluruh namespace halaman) --- */
+html[data-theme="dark"] .fc-card, html[data-theme="dark"] .fc-item, html[data-theme="dark"] .fc-modal,
+html[data-theme="dark"] .sp-card, html[data-theme="dark"] .sp-modal,
+html[data-theme="dark"] .df-card, html[data-theme="dark"] .df-stat, html[data-theme="dark"] .df-modal,
+html[data-theme="dark"] .pg-card, html[data-theme="dark"] .pg-stat, html[data-theme="dark"] .pg-modal,
+html[data-theme="dark"] .ms-side, html[data-theme="dark"] .ms-main, html[data-theme="dark"] .ms-compose, html[data-theme="dark"] .ms-bubble.theirs,
+html[data-theme="dark"] .gr-card, html[data-theme="dark"] .gr-empty,
+html[data-theme="dark"] .st-card, html[data-theme="dark"] .st-stat, html[data-theme="dark"] .st-info-item,
+html[data-theme="dark"] .wl-card, html[data-theme="dark"] .wl-stat, html[data-theme="dark"] .wl-modal,
+html[data-theme="dark"] .ll-card, html[data-theme="dark"] .ll-stat, html[data-theme="dark"] .ll-modal,
+html[data-theme="dark"] .lr-card, html[data-theme="dark"] .lr-doc, html[data-theme="dark"] .lr-popup,
+html[data-theme="dark"] .card, html[data-theme="dark"] .table {
+    background:#1e293b; border-color:#334155; color:#e2e8f0;
+}
+
+/* --- Kepala tabel & baris --- */
+html[data-theme="dark"] .sp-table thead th, html[data-theme="dark"] .df-table thead th,
+html[data-theme="dark"] .pg-table thead th, html[data-theme="dark"] .wl-table thead th,
+html[data-theme="dark"] .ll-table thead th { background:#0b1220; color:#94a3b8; border-color:#334155; }
+html[data-theme="dark"] .sp-table tbody tr, html[data-theme="dark"] .df-table tbody tr,
+html[data-theme="dark"] .pg-table tbody tr, html[data-theme="dark"] .wl-table tbody tr,
+html[data-theme="dark"] .ll-table tbody tr { border-color:#24344d; }
+html[data-theme="dark"] .sp-table tbody tr:hover, html[data-theme="dark"] .df-table tbody tr:hover,
+html[data-theme="dark"] .pg-table tbody tr:hover, html[data-theme="dark"] .wl-table tbody tr:hover,
+html[data-theme="dark"] .ll-table tbody tr:hover { background:#24344d; }
+
+/* --- Judul & teks yang di-hardcode warna gelap --- */
+html[data-theme="dark"] .fc-header-title, html[data-theme="dark"] .sp-header-title,
+html[data-theme="dark"] .df-header-title, html[data-theme="dark"] .pg-header-title,
+html[data-theme="dark"] .gr-header-title, html[data-theme="dark"] .ms-header-title,
+html[data-theme="dark"] .st-header-title, html[data-theme="dark"] .wl-header-title,
+html[data-theme="dark"] .ll-header-title, html[data-theme="dark"] .fc-item-name,
+html[data-theme="dark"] .sp-name, html[data-theme="dark"] .df-title, html[data-theme="dark"] .pg-title,
+html[data-theme="dark"] .gr-card-title, html[data-theme="dark"] .ms-partner-name,
+html[data-theme="dark"] .ms-main-title, html[data-theme="dark"] .st-row-label,
+html[data-theme="dark"] .st-card-title, html[data-theme="dark"] .st-stat-num,
+html[data-theme="dark"] .st-info-value, html[data-theme="dark"] .fc-modal h3,
+html[data-theme="dark"] .sp-modal h3, html[data-theme="dark"] .df-modal h3,
+html[data-theme="dark"] .pg-modal h3 { color:#f1f5f9; }
+
+/* --- Input, select, textarea --- */
+html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea {
+    background:#0f172a; color:#e2e8f0; border-color:#334155;
+}
+html[data-theme="dark"] .st-input, html[data-theme="dark"] .fc-input, html[data-theme="dark"] .sp-input,
+html[data-theme="dark"] .sp-select, html[data-theme="dark"] .df-input, html[data-theme="dark"] .df-select,
+html[data-theme="dark"] .pg-input, html[data-theme="dark"] .pg-select, html[data-theme="dark"] .ms-input,
+html[data-theme="dark"] .gr-input, html[data-theme="dark"] .gr-textarea { background:#0f172a; color:#e2e8f0; border-color:#334155; }
+
+/* --- Tombol netral & tombol ikon --- */
+html[data-theme="dark"] .fc-btn-cancel, html[data-theme="dark"] .sp-btn-cancel,
+html[data-theme="dark"] .df-btn-cancel, html[data-theme="dark"] .pg-btn-cancel,
+html[data-theme="dark"] .wl-btn-cancel, html[data-theme="dark"] .ll-btn-cancel { background:#24344d; color:#c3cedd; }
+html[data-theme="dark"] .fc-icon-btn, html[data-theme="dark"] .sp-icon-btn,
+html[data-theme="dark"] .ll-icon-btn, html[data-theme="dark"] .wl-icon-btn,
+html[data-theme="dark"] .df-btn { background:#1e293b; border-color:#334155; color:#c3cedd; }
+
+/* --- Chat --- */
+html[data-theme="dark"] .ms-thread { background:#0b1220; }
+html[data-theme="dark"] .ms-side-head, html[data-theme="dark"] .ms-main-head { background:#16203a; border-color:#24344d; }
+html[data-theme="dark"] .ms-partner { border-color:#24344d; }
+html[data-theme="dark"] .ms-partner:hover { background:#24344d; }
+html[data-theme="dark"] .ms-partner.is-active { background:rgba(99,102,241,0.15); }
+
+/* --- Halaman Pengaturan --- */
+html[data-theme="dark"] .st-row { border-color:#24344d; }
+html[data-theme="dark"] .st-row-icon { background:#0f172a; border-color:#334155; }
+html[data-theme="dark"] .st-card-head, html[data-theme="dark"] .st-footer { background:#16203a; border-color:#24344d; }
+html[data-theme="dark"] .st-slider { background:#334155; }
+html[data-theme="dark"] .st-info-item { background:#0f172a; border-color:#334155; }
+
+/* --- Toolbar & kepala kartu bergradien abu --- */
+html[data-theme="dark"] .wl-toolbar, html[data-theme="dark"] .ll-toolbar,
+html[data-theme="dark"] .lr-card-header, html[data-theme="dark"] .wl-card .wl-toolbar { background:#16203a; border-color:#24344d; }
+html[data-theme="dark"] .wl-search, html[data-theme="dark"] .ll-search { background:#0f172a; color:#e2e8f0; border-color:#334155; }
+html[data-theme="dark"] .wl-chip, html[data-theme="dark"] .ll-filter-chip { background:#1e293b; border-color:#334155; color:#c3cedd; }

@@ -30,6 +30,12 @@ try {
     require_once dirname(__DIR__) . '/app/Models/Repository.php';
     require_once dirname(__DIR__) . '/app/Models/LecturerExpertise.php';
     require_once dirname(__DIR__) . '/app/Models/Analytics.php';
+    require_once dirname(__DIR__) . '/app/Models/SystemSetting.php';
+    require_once dirname(__DIR__) . '/app/Models/Faculty.php';
+    require_once dirname(__DIR__) . '/app/Models/StudyProgram.php';
+    require_once dirname(__DIR__) . '/app/Models/DefenseSession.php';
+    require_once dirname(__DIR__) . '/app/Models/DirectMessage.php';
+    require_once dirname(__DIR__) . '/app/Models/PlagiarismCheck.php';
 } catch (Throwable $e) {
     error_log('[Bootstrap: models] ' . $e->getMessage());
     http_response_code(500);
@@ -56,6 +62,11 @@ try {
     require_once dirname(__DIR__) . '/app/Controllers/RepositoryController.php';
     require_once dirname(__DIR__) . '/app/Controllers/RecommendController.php';
     require_once dirname(__DIR__) . '/app/Controllers/ReportController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/SettingController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/MasterController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/DefenseController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/PlagiarismController.php';
+    require_once dirname(__DIR__) . '/app/Controllers/MessageController.php';
 } catch (Throwable $e) {
     error_log('[Bootstrap: models] ' . $e->getMessage());
     http_response_code(500);
@@ -235,7 +246,13 @@ try {
         
         $path === '/admin/logs/export' && $method === 'GET' 
             => (function() { requireRole('admin'); AdminController::exportLogs(); })(),
-        
+
+        $path === '/admin/settings' && $method === 'GET' 
+            => (function() { requireRole('admin'); SettingController::index(); })(),
+            
+        $path === '/admin/settings' && $method === 'POST' 
+            => (function() { requireRole('admin'); SettingController::update(); })(),
+
         // =================================================================
         // STUDENT ROUTES
         // =================================================================
@@ -328,8 +345,8 @@ try {
         $path === '/api/documents/upload' && $method === 'POST' 
             => (function() { requireAuth(); DocumentController::upload(); })(),
         
-$path === '/documents/download' && in_array($method, ['GET', 'HEAD'], true) 
-    => (function() { requireAuth(); DocumentController::download(); })(),
+        $path === '/documents/download' && in_array($method, ['GET', 'HEAD'], true) 
+           => (function() { requireAuth(); DocumentController::download(); })(),
 
         // =================================================================
         // REVIEW & COMMENTS API
@@ -367,6 +384,60 @@ $path === '/documents/download' && in_array($method, ['GET', 'HEAD'], true)
         $path === '/api/notifications/read' && $method === 'POST' 
             => (function() { requireAuth(); NotificationController::markOneRead(); })(),
         
+                // =================================================================
+        // MASTER DATA (FAKULTAS & PRODI)
+        // =================================================================
+        $path === '/admin/faculties' && $method === 'GET'
+            => (function() { requireRole('admin'); MasterController::faculties(); })(),
+        $path === '/admin/faculties/store' && $method === 'POST'
+            => (function() { requireRole('admin'); MasterController::storeFaculty(); })(),
+        $path === '/admin/faculties/update' && $method === 'POST'
+            => (function() { requireRole('admin'); MasterController::updateFaculty(); })(),
+        $path === '/admin/faculties/delete' && $method === 'POST'
+            => (function() { requireRole('admin'); MasterController::deleteFaculty(); })(),
+        $path === '/admin/study-programs' && $method === 'GET'
+            => (function() { requireRole('admin'); MasterController::studyPrograms(); })(),
+        $path === '/admin/study-programs/store' && $method === 'POST'
+            => (function() { requireRole('admin'); MasterController::storeProdi(); })(),
+        $path === '/admin/study-programs/update' && $method === 'POST'
+            => (function() { requireRole('admin'); MasterController::updateProdi(); })(),
+        $path === '/admin/study-programs/delete' && $method === 'POST'
+            => (function() { requireRole('admin'); MasterController::deleteProdi(); })(),
+
+        // =================================================================
+        // SIDANG & PENILAIAN
+        // =================================================================
+        $path === '/admin/defense' && $method === 'GET'
+            => (function() { requireRole('admin'); DefenseController::index(); })(),
+        $path === '/admin/defense/store' && $method === 'POST'
+            => (function() { requireRole('admin'); DefenseController::store(); })(),
+        $path === '/admin/defense/complete' && $method === 'POST'
+            => (function() { requireRole('admin'); DefenseController::complete(); })(),
+        $path === '/lecturer/grading' && $method === 'GET'
+            => (function() { requireRole('lecturer'); DefenseController::grading(); })(),
+        $path === '/lecturer/grading/save' && $method === 'POST'
+            => (function() { requireRole('lecturer'); DefenseController::saveGrade(); })(),
+
+        // =================================================================
+        // CEK PLAGIASI
+        // =================================================================
+        $path === '/admin/plagiarism' && $method === 'GET'
+            => (function() { requireRole('admin'); PlagiarismController::index(); })(),
+        $path === '/admin/plagiarism/store' && $method === 'POST'
+            => (function() { requireRole('admin'); PlagiarismController::store(); })(),
+
+        // =================================================================
+        // CHAT BIMBINGAN
+        // =================================================================
+        $path === '/student/messages' && $method === 'GET'
+            => (function() { requireRole('student'); MessageController::show(); })(),
+        $path === '/lecturer/messages' && $method === 'GET'
+            => (function() { requireRole('lecturer'); MessageController::show(); })(),
+        $path === '/messages/send' && $method === 'POST'
+            => (function() { requireRole('student', 'lecturer'); MessageController::send(); })(),
+        $path === '/api/messages' && $method === 'GET'
+            => (function() { requireRole('student', 'lecturer'); MessageController::api(); })(),
+
         // =================================================================
         // 404 - NOT FOUND
         // =================================================================

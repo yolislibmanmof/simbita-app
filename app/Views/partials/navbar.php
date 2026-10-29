@@ -4,6 +4,7 @@ $userName  = $_SESSION['simbita_user']['name'] ?? 'User';
 $userRole  = Auth::role();
 $userId    = Auth::id();
 $userEmail = $_SESSION['simbita_user']['email'] ?? '';
+
 // Hitung proposal menunggu (badge menu)
 $pendingProposals = 0;
 try {
@@ -13,6 +14,7 @@ try {
 } catch (Throwable $e) {
     $pendingProposals = 0;
 }
+
 // Ambil notifikasi via Model
 $unreadCount = 0;
 $notifications = [];
@@ -21,6 +23,16 @@ try {
     $notifications = Notification::latest($userId, 8);
 } catch (Throwable $e) {
     error_log('[Navbar Notif Error] ' . $e->getMessage());
+}
+
+// Hitung pesan chat belum dibaca (badge menu)
+$unreadMessages = 0;
+try {
+    if (class_exists('DirectMessage') && in_array($userRole, ['student', 'lecturer'], true)) {
+        $unreadMessages = DirectMessage::countUnread($userId);
+    }
+} catch (Throwable $e) {
+    $unreadMessages = 0;
 }
 
 // Helper relative time
@@ -46,7 +58,16 @@ $typeMeta = function(string $type): array {
 
 $currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-active' : '';
+
+// Helper: tandai trigger dropdown aktif bila salah satu anakannya sedang dibuka
+$groupActive = function(array $paths) use ($currentPath): string {
+    foreach ($paths as $p) {
+        if (str_contains($currentPath, $p)) return 'nb-active';
+    }
+    return '';
+};
 ?>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/darkmode.css">
 
 <style>
 .nb-bar{position:sticky;top:0;z-index:1100;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
@@ -54,11 +75,25 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
 .nb-brand{display:flex;align-items:center;gap:0.5rem;font-weight:800;font-size:1.25rem;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;flex-shrink:0}
 .nb-brand i{-webkit-text-fill-color:initial;color:#667eea;font-size:1.45rem}
 .nb-menu{display:flex;align-items:center;justify-content:center;gap:0.25rem;list-style:none;margin:0;padding:0;flex:1}
+/* Penjaga anti-potong: menu boleh melipat ke baris kedua, bukan memotong elemen kanan */
+.nb-menu{flex-wrap:wrap;row-gap:0.2rem;min-width:0}
 .nb-menu a{display:flex;align-items:center;gap:0.45rem;padding:0.55rem 0.95rem;border-radius:0.6rem;color:#374151;font-weight:600;font-size:0.875rem;text-decoration:none;transition:all 0.25s;position:relative;white-space:nowrap}
 .nb-menu a:hover{background:#f3f4f6;color:#111827}
 .nb-menu a.nb-active{background:linear-gradient(135deg,rgba(102,126,234,0.12),rgba(118,75,162,0.12));color:#5b21b6}
 .nb-menu a.nb-active::after{content:'';position:absolute;left:0.95rem;right:0.95rem;bottom:0.15rem;height:2px;border-radius:2px;background:linear-gradient(90deg,#667eea,#764ba2)}
-.nb-actions{display:flex;align-items:center;gap:0.6rem;flex-shrink:0}
+/* --- Trigger dropdown menu navigasi --- */
+.nb-menu-trigger{display:flex;align-items:center;gap:0.45rem;padding:0.55rem 0.95rem;border-radius:0.6rem;color:#374151;font-weight:600;font-size:0.875rem;background:none;border:none;cursor:pointer;font-family:inherit;transition:all 0.25s;white-space:nowrap;position:relative}
+.nb-menu-trigger:hover{background:#f3f4f6;color:#111827}
+.nb-menu-trigger.nb-active{background:linear-gradient(135deg,rgba(102,126,234,0.12),rgba(118,75,162,0.12));color:#5b21b6}
+.nb-caret{font-size:0.62rem;color:#6b7280;margin-left:0.1rem;transition:transform 0.25s}
+.nb-dropdown.nb-is-open .nb-caret{transform:rotate(180deg)}
+/* --- Panel dropdown navigasi --- */
+.nb-navmenu{min-width:230px;padding:0.5rem}
+.nb-navmenu a{display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.85rem;border-radius:0.6rem;color:#374151;font-weight:600;font-size:0.875rem;text-decoration:none;transition:background 0.2s;white-space:nowrap}
+.nb-navmenu a:hover{background:#f3f4f6}
+.nb-navmenu a.nb-active{background:rgba(102,126,234,0.12);color:#5b21b6}
+.nb-navmenu a.nb-active::after{content:none}
+.nb-actions{display:flex;align-items:center;gap:0.6rem;flex-shrink:0;margin-left:auto}
 .nb-dropdown{position:relative}
 .nb-icon-btn{position:relative;width:40px;height:40px;border-radius:0.7rem;border:1px solid #e5e7eb;background:#fff;color:#4b5563;display:flex;align-items:center;justify-content:center;font-size:1.05rem;cursor:pointer;transition:all 0.25s}
 .nb-icon-btn:hover{background:#f9fafb;color:#111827;transform:translateY(-1px);box-shadow:0 4px 10px -4px rgba(0,0,0,0.15)}
@@ -112,11 +147,13 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
 .nb-user-email{font-size:0.78rem;color:#6b7280;word-break:break-all;margin-bottom:0.5rem}
 .nb-role-badge{display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;border-radius:999px;font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;background:linear-gradient(135deg,rgba(102,126,234,0.15),rgba(118,75,162,0.15));color:#5b21b6}
 .nb-user-body{padding:0.5rem}
+.nb-user-link{width:100%;display:flex;align-items:center;gap:0.5rem;padding:0.65rem 0.9rem;background:transparent;border:none;color:#374151;font-weight:600;font-size:0.875rem;border-radius:0.6rem;cursor:pointer;transition:all 0.2s;text-align:left;font-family:inherit;text-decoration:none}
+.nb-user-link:hover{background:#f3f4f6}
 .nb-logout-btn{width:100%;display:flex;align-items:center;gap:0.5rem;padding:0.65rem 0.9rem;border:none;background:transparent;color:#dc2626;font-weight:700;font-size:0.875rem;cursor:pointer;border-radius:0.6rem;transition:all 0.2s;font-family:inherit;text-align:left}
 .nb-logout-btn:hover{background:#fee2e2}
 @media (max-width:900px){
     .nb-inner{flex-wrap:wrap;gap:0.75rem}
-    .nb-menu{order:3;width:100%;overflow-x:auto;padding-bottom:0.25rem}
+    .nb-menu{order:3;width:100%;overflow:visible;flex-wrap:wrap;justify-content:flex-start;padding-bottom:0.25rem}
     .nb-user-name{display:none}
     .nb-user-btn{padding-right:0.5rem}
     .nb-notif-menu{right:-1rem}
@@ -133,30 +170,87 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
         <ul class="nb-menu">
             <?php if ($userRole === 'admin'): ?>
                 <li><a href="<?= BASE_URL ?>/admin/dashboard" class="<?= $isActive('/admin/dashboard') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                <li><a href="<?= BASE_URL ?>/admin/students" class="<?= $isActive('/admin/students') ?>"><i class="bi bi-people"></i> Mahasiswa</a></li>
-                <li><a href="<?= BASE_URL ?>/admin/lecturers" class="<?= $isActive('/admin/lecturers') ?>"><i class="bi bi-person-workspace"></i> Dosen</a></li>
-                <li><a href="<?= BASE_URL ?>/admin/works" class="<?= $isActive('/admin/works') ?>"><i class="bi bi-file-earmark-text"></i> Tugas Akhir</a></li>
+                <li class="nb-dropdown">
+                    <button type="button" class="nb-menu-trigger <?= $groupActive(['/admin/students', '/admin/lecturers', '/admin/works']) ?>" data-nb-toggle="nbMenuAkademik" aria-expanded="false">
+                        <i class="bi bi-people"></i> Akademik <i class="bi bi-chevron-down nb-caret"></i>
+                    </button>
+                    <div class="nb-dropdown-menu nb-navmenu" id="nbMenuAkademik">
+                        <a href="<?= BASE_URL ?>/admin/students" class="<?= $isActive('/admin/students') ?>"><i class="bi bi-people"></i> Mahasiswa</a>
+                        <a href="<?= BASE_URL ?>/admin/lecturers" class="<?= $isActive('/admin/lecturers') ?>"><i class="bi bi-person-workspace"></i> Dosen</a>
+                        <a href="<?= BASE_URL ?>/admin/works" class="<?= $isActive('/admin/works') ?>"><i class="bi bi-file-earmark-text"></i> Tugas Akhir</a>
+                    </div>
+                </li>
                 <li><a href="<?= BASE_URL ?>/repository" class="<?= $isActive('/repository') ?>"><i class="bi bi-archive"></i> Repository</a></li>
+                <li class="nb-dropdown">
+                    <button type="button" class="nb-menu-trigger <?= $groupActive(['/admin/defense', '/admin/plagiarism']) ?>" data-nb-toggle="nbMenuSidang" aria-expanded="false">
+                        <i class="bi bi-person-video3"></i> Sidang & Mutu <i class="bi bi-chevron-down nb-caret"></i>
+                    </button>
+                    <div class="nb-dropdown-menu nb-navmenu" id="nbMenuSidang">
+                        <a href="<?= BASE_URL ?>/admin/defense" class="<?= $isActive('/admin/defense') ?>"><i class="bi bi-person-video3"></i> Jadwal Sidang</a>
+                        <a href="<?= BASE_URL ?>/admin/plagiarism" class="<?= $isActive('/admin/plagiarism') ?>"><i class="bi bi-clipboard2-pulse"></i> Cek Plagiasi</a>
+                    </div>
+                </li>
+                <li class="nb-dropdown">
+                    <button type="button" class="nb-menu-trigger <?= $groupActive(['/admin/faculties', '/admin/study-programs', '/admin/settings']) ?>" data-nb-toggle="nbMenuSistem" aria-expanded="false">
+                        <i class="bi bi-gear-fill"></i> Sistem <i class="bi bi-chevron-down nb-caret"></i>
+                    </button>
+                    <div class="nb-dropdown-menu nb-navmenu" id="nbMenuSistem">
+                        <a href="<?= BASE_URL ?>/admin/faculties" class="<?= $isActive('/admin/faculties') ?>"><i class="bi bi-diagram-3"></i> Master Data</a>
+                        <a href="<?= BASE_URL ?>/admin/study-programs" class="<?= $isActive('/admin/study-programs') ?>"><i class="bi bi-mortarboard"></i> Program Studi</a>
+                        <a href="<?= BASE_URL ?>/admin/settings" class="<?= $isActive('/admin/settings') ?>"><i class="bi bi-sliders"></i> Pengaturan Sistem</a>
+                    </div>
+                </li>
+
             <?php elseif ($userRole === 'lecturer'): ?>
                 <li><a href="<?= BASE_URL ?>/lecturer/dashboard" class="<?= $isActive('/lecturer/dashboard') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
                 <li><a href="<?= BASE_URL ?>/lecturer/proposals" class="<?= $isActive('/lecturer/proposals') ?>"><i class="bi bi-lightbulb"></i> Pengajuan Judul<?php if ($pendingProposals > 0): ?><span class="nb-menu-badge"><?= $pendingProposals ?></span><?php endif; ?></a></li>
-                <li><a href="<?= BASE_URL ?>/lecturer/work" class="<?= $isActive('/lecturer/work') ?>"><i class="bi bi-journal-text"></i> Tugas Akhir</a></li>
+                <li class="nb-dropdown">
+                    <button type="button" class="nb-menu-trigger <?= $groupActive(['/lecturer/work', '/lecturer/students', '/lecturer/history']) ?>" data-nb-toggle="nbMenuBimbingan" aria-expanded="false">
+                        <i class="bi bi-journal-text"></i> Bimbingan <i class="bi bi-chevron-down nb-caret"></i>
+                    </button>
+                    <div class="nb-dropdown-menu nb-navmenu" id="nbMenuBimbingan">
+                        <a href="<?= BASE_URL ?>/lecturer/work" class="<?= $isActive('/lecturer/work') ?>"><i class="bi bi-journal-text"></i> Tugas Akhir</a>
+                        <a href="<?= BASE_URL ?>/lecturer/students" class="<?= $isActive('/lecturer/students') ?>"><i class="bi bi-people"></i> Mahasiswa Bimbingan</a>
+                        <a href="<?= BASE_URL ?>/lecturer/history" class="<?= $isActive('/lecturer/history') ?>"><i class="bi bi-clock-history"></i> Riwayat</a>
+                    </div>
+                </li>
+                <li class="nb-dropdown">
+                    <button type="button" class="nb-menu-trigger <?= $groupActive(['/lecturer/reviews', '/lecturer/review', '/lecturer/grading']) ?>" data-nb-toggle="nbMenuReview" aria-expanded="false">
+                        <i class="bi bi-clipboard-check"></i> Review & Nilai <i class="bi bi-chevron-down nb-caret"></i>
+                    </button>
+                    <div class="nb-dropdown-menu nb-navmenu" id="nbMenuReview">
+                        <a href="<?= BASE_URL ?>/lecturer/reviews" class="<?= $isActive('/lecturer/reviews') ?>"><i class="bi bi-clipboard-check"></i> Review Dokumen</a>
+                        <a href="<?= BASE_URL ?>/lecturer/grading" class="<?= $isActive('/lecturer/grading') ?>"><i class="bi bi-award"></i> Penilaian Sidang</a>
+                    </div>
+                </li>
                 <li><a href="<?= BASE_URL ?>/repository" class="<?= $isActive('/repository') ?>"><i class="bi bi-archive"></i> Repository</a></li>
-                <li><a href="<?= BASE_URL ?>/lecturer/students" class="<?= $isActive('/lecturer/students') ?>"><i class="bi bi-people"></i> Mahasiswa Bimbingan</a></li>
-                <li><a href="<?= BASE_URL ?>/lecturer/reviews" class="<?= $isActive('/lecturer/reviews') ?>"><i class="bi bi-clipboard-check"></i> Review</a></li>
-                <li><a href="<?= BASE_URL ?>/lecturer/history" class="<?= $isActive('/lecturer/history') ?>"><i class="bi bi-clock-history"></i> Riwayat</a></li>
+                <li><a href="<?= BASE_URL ?>/lecturer/messages" class="<?= $isActive('/lecturer/messages') ?>"><i class="bi bi-chat-dots"></i> Chat<?php if ($unreadMessages > 0): ?><span class="nb-menu-badge"><?= $unreadMessages ?></span><?php endif; ?></a></li>
+
             <?php elseif ($userRole === 'student'): ?>
                 <li><a href="<?= BASE_URL ?>/student/dashboard" class="<?= $isActive('/student/dashboard') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
                 <li><a href="<?= BASE_URL ?>/student/proposals" class="<?= $isActive('/student/proposals') ?>"><i class="bi bi-lightbulb"></i> Pengajuan Judul<?php if ($pendingProposals > 0): ?><span class="nb-menu-badge"><?= $pendingProposals ?></span><?php endif; ?></a></li>
-                <li><a href="<?= BASE_URL ?>/student/work" class="<?= $isActive('/student/work') ?>"><i class="bi bi-journal-text"></i> Tugas Akhir</a></li>
+                <li class="nb-dropdown">
+                    <button type="button" class="nb-menu-trigger <?= $groupActive(['/student/work', '/student/upload', '/student/history']) ?>" data-nb-toggle="nbMenuTugas" aria-expanded="false">
+                        <i class="bi bi-journal-text"></i> Tugas Akhir <i class="bi bi-chevron-down nb-caret"></i>
+                    </button>
+                    <div class="nb-dropdown-menu nb-navmenu" id="nbMenuTugas">
+                        <a href="<?= BASE_URL ?>/student/work" class="<?= $isActive('/student/work') ?>"><i class="bi bi-journal-text"></i> Ringkasan Tugas Akhir</a>
+                        <a href="<?= BASE_URL ?>/student/upload" class="<?= $isActive('/student/upload') ?>"><i class="bi bi-cloud-upload"></i> Upload Dokumen</a>
+                        <a href="<?= BASE_URL ?>/student/history" class="<?= $isActive('/student/history') ?>"><i class="bi bi-clock-history"></i> Riwayat</a>
+                    </div>
+                </li>
                 <li><a href="<?= BASE_URL ?>/student/recommend" class="<?= $isActive('/student/recommend') ?>"><i class="bi bi-magic"></i> Cari Dosen</a></li>
                 <li><a href="<?= BASE_URL ?>/repository" class="<?= $isActive('/repository') ?>"><i class="bi bi-archive"></i> Repository</a></li>
-                <li><a href="<?= BASE_URL ?>/student/upload" class="<?= $isActive('/student/upload') ?>"><i class="bi bi-cloud-upload"></i> Upload</a></li>
-                <li><a href="<?= BASE_URL ?>/student/history" class="<?= $isActive('/student/history') ?>"><i class="bi bi-clock-history"></i> Riwayat</a></li>
+                <li><a href="<?= BASE_URL ?>/student/messages" class="<?= $isActive('/student/messages') ?>"><i class="bi bi-chat-dots"></i> Chat Pembimbing<?php if ($unreadMessages > 0): ?><span class="nb-menu-badge"><?= $unreadMessages ?></span><?php endif; ?></a></li>
             <?php endif; ?>
         </ul>
 
         <div class="nb-actions">
+            <!-- Theme Toggle -->
+            <button type="button" class="nb-icon-btn" id="nbThemeBtn" title="Ganti Tema Terang/Gelap">
+                <i class="bi bi-moon-stars-fill" id="nbThemeIcon"></i>
+            </button>
+
             <!-- Notifications Dropdown -->
             <div class="nb-dropdown">
                 <button type="button" class="nb-icon-btn" id="nbNotifBtn" data-nb-toggle="nbNotifMenu" aria-expanded="false" title="Notifikasi">
@@ -185,7 +279,7 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
                                 Tidak ada notifikasi
                             </div>
                         <?php else: ?>
-                            <?php foreach ($notifications as $notif): 
+                            <?php foreach ($notifications as $notif):
                                 $meta = $typeMeta($notif['type'] ?? 'system');
                             ?>
                                 <div class="nb-notif-item <?= $notif['is_read'] ? '' : 'nb-unread' ?>"
@@ -226,14 +320,9 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
                         </span>
                     </div>
                     <div class="nb-user-body">
-                        <!-- Link Ubah Password -->
-<form method="GET" action="<?= BASE_URL ?>/change-password" style="margin-bottom: 0.25rem;">
-    <button type="submit" style="width: 100%; display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.9rem; background: transparent; border: none; color: #374151; font-weight: 600; font-size: 0.875rem; border-radius: 0.6rem; cursor: pointer; transition: all 0.2s; text-align: left; font-family: inherit;">
-        <i class="bi bi-key-fill" style="color: #f59e0b;"></i> Ubah Password
-    </button>
-</form>
-                        
-                        <!-- Tombol Logout -->
+                        <a href="<?= BASE_URL ?>/change-password" class="nb-user-link">
+                            <i class="bi bi-key-fill" style="color: #f59e0b;"></i> Ubah Password
+                        </a>
                         <form method="POST" action="<?= BASE_URL ?>/logout">
                             <input type="hidden" name="csrf_token" value="<?= e(Csrf::token()) ?>">
                             <button type="submit" class="nb-logout-btn">
@@ -281,13 +370,27 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
 
+    // ===== Theme Toggle (Dark Mode) =====
+    const themeRoot = document.documentElement;
+    const applyTheme = (t) => {
+        if (t === 'dark') themeRoot.setAttribute('data-theme', 'dark');
+        else themeRoot.removeAttribute('data-theme');
+        const icon = document.getElementById('nbThemeIcon');
+        if (icon) icon.className = 'bi ' + (t === 'dark' ? 'bi-sun-fill' : 'bi-moon-stars-fill');
+    };
+    applyTheme(localStorage.getItem('simbita_theme') || 'light');
+    document.getElementById('nbThemeBtn')?.addEventListener('click', () => {
+        const next = themeRoot.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('simbita_theme', next);
+        applyTheme(next);
+    });
+
     // ===== Mark One Read + Navigate =====
     document.querySelectorAll('.nb-notif-item').forEach(item => {
         item.addEventListener('click', async () => {
             const notifId = item.dataset.notifId;
             const link = item.dataset.link;
-            
-            // Mark as read
+
             if (item.classList.contains('nb-unread')) {
                 const fd = new FormData();
                 fd.append('csrf_token', CSRF_TOKEN);
@@ -296,8 +399,7 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
                     await fetch(`${BASE}/api/notifications/read`, { method: 'POST', body: fd });
                 } catch (e) { /* ignore */ }
             }
-            
-            // Navigate
+
             if (link) window.location.href = link;
         });
     });
@@ -309,15 +411,14 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
             e.stopPropagation();
             markAllBtn.disabled = true;
             markAllBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Memproses...';
-            
+
             const fd = new FormData();
             fd.append('csrf_token', CSRF_TOKEN);
-            
+
             try {
                 const res = await fetch(`${BASE}/api/notifications/read-all`, { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.success) {
-                    // Update UI
                     document.querySelectorAll('.nb-notif-item.nb-unread').forEach(i => i.classList.remove('nb-unread'));
                     const badge = document.getElementById('nbNotifBadge');
                     if (badge) badge.remove();
@@ -331,28 +432,26 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
         });
     }
 
-    // ===== Real-time Polling (setiap 30 detik) =====
+    // ===== Real-time Polling Notifikasi (30 detik) =====
     let lastCount = <?= (int)$unreadCount ?>;
-    
+
     const pollNotifCount = async () => {
         try {
             const res = await fetch(`${BASE}/api/notifications/count`);
             const data = await res.json();
             if (!data.success) return;
-            
+
             const newCount = data.count;
             const badge = document.getElementById('nbNotifBadge');
             const btn = document.getElementById('nbNotifBtn');
-            
+
             if (newCount !== lastCount) {
                 if (newCount > lastCount && newCount > 0) {
-                    // Notifikasi baru — bounce animation
                     if (badge) {
                         badge.textContent = newCount > 99 ? '99+' : newCount;
                         badge.classList.add('nb-badge-new');
                         setTimeout(() => badge.classList.remove('nb-badge-new'), 600);
                     } else {
-                        // Buat badge baru
                         const newBadge = document.createElement('span');
                         newBadge.id = 'nbNotifBadge';
                         newBadge.className = 'nb-badge nb-badge-new';
@@ -361,10 +460,8 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
                         setTimeout(() => newBadge.classList.remove('nb-badge-new'), 600);
                     }
                 } else if (newCount === 0) {
-                    // Semua sudah dibaca
                     if (badge) badge.remove();
                 } else {
-                    // Jumlah berkurang (user baca dari tab lain)
                     if (badge) badge.textContent = newCount > 99 ? '99+' : newCount;
                 }
                 lastCount = newCount;
@@ -374,7 +471,6 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
         }
     };
 
-    // Poll setiap 30 detik, tapi hanya saat tab aktif
     let pollInterval = null;
     const startPolling = () => {
         if (pollInterval) return;
@@ -389,11 +485,11 @@ $isActive = fn(string $path): string => str_contains($currentPath, $path) ? 'nb-
 
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) stopPolling();
-        else { startPolling(); pollNotifCount(); } // Cek segera saat tab aktif kembali
+        else { startPolling(); pollNotifCount(); }
     });
-    
+
     startPolling();
-    
-    console.log('%c✓ Navbar Notification System Loaded', 'color: #6366f1; font-weight: bold;');
+
+    console.log('%c✓ Navbar SIMBITA Loaded (Notifications + Dark Mode)', 'color: #6366f1; font-weight: bold;');
 })();
 </script>

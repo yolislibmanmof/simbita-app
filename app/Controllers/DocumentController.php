@@ -37,9 +37,11 @@ class DocumentController
         }
 
         $file = $_FILES['file'];
-        $maxSize = 50 * 1024 * 1024; // 50MB
+        $maxMb = (int) SystemSetting::get('max_upload_size_mb', 25);
+        $maxSize = $maxMb * 1024 * 1024;
+        
         if ($file['size'] > $maxSize) {
-            json_response(['error' => 'Ukuran file terlalu besar (maks 50MB)'], 400);
+            json_response(['error' => "Ukuran file terlalu besar (maks {$maxMb}MB)"], 400);
         }
 
         // Validasi ekstensi

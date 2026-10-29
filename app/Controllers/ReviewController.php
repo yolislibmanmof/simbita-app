@@ -72,12 +72,6 @@ class ReviewController
             }
 
             if (!$allowed) {
-                $stmt = $db->prepare('SELECT 1 FROM reviews WHERE document_version_id = ? AND reviewer_id = ?');
-                $stmt->execute([$versionId, $userId]);
-                $allowed = (bool)$stmt->fetch();
-            }
-
-            if (!$allowed) {
                 $stmt = $db->prepare('SELECT 1 FROM lecturer_profiles WHERE user_id = ?');
                 $stmt->execute([$userId]);
                 $allowed = (bool)$stmt->fetch();

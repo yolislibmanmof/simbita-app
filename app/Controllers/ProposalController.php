@@ -45,8 +45,14 @@ class ProposalController
             $_SESSION['flash_error'] = 'Token tidak valid.';
             redirect('/student/proposals');
         }
+        
+        // Gerbang penutupan pendaftaran
+        if ((string) SystemSetting::get('is_registration_open', '1') !== '1') {
+            $_SESSION['flash_error'] = 'Mohon maaf, pendaftaran pengajuan judul tugas akhir saat ini sedang ditutup oleh administrator.';
+            redirect('/student/proposals');   // PERBAIKAN: tanpa BASE_URL
+        }
 
-        $userId = Auth::id();
+        $userId = Auth::id();   // PERBAIKAN: hapus duplikasi (sebelumnya muncul 2x)
         $db = Database::connection();
 
         $stmt = $db->prepare('SELECT id FROM student_profiles WHERE user_id = ?');

@@ -634,31 +634,6 @@ $oldEmail = $_POST['email'] ?? '';
                     <i class="bi bi-arrow-right"></i>
                 </button>
             </form>
-
-            <!-- Demo Credentials -->
-            <?php if (defined('APP_DEBUG') && APP_DEBUG): ?>
-            <div class="lg-demo-box">
-                <div class="lg-demo-title">
-                    <i class="bi bi-key-fill"></i>
-                    Akun Demo (klik untuk isi otomatis)
-                </div>
-                <div class="lg-demo-list">
-                    <div class="lg-demo-item" data-email="admin@simbita.id" data-password="admin123">
-                        <span class="lg-demo-role"><i class="bi bi-shield-fill-check"></i> Admin</span>
-                        <span class="lg-demo-cred">admin@simbita.id / admin123</span>
-                    </div>
-                    <div class="lg-demo-item" data-email="dosen@simbita.id" data-password="dosen123">
-                        <span class="lg-demo-role"><i class="bi bi-person-workspace"></i> Dosen</span>
-                        <span class="lg-demo-cred">dosen@simbita.id / dosen123</span>
-                    </div>
-                    <div class="lg-demo-item" data-email="mahasiswa@simbita.id" data-password="mhs123">
-                        <span class="lg-demo-role"><i class="bi bi-mortarboard-fill"></i> Mahasiswa</span>
-                        <span class="lg-demo-cred">mahasiswa@simbita.id / mhs123</span>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
-
             <!-- Footer -->
             <div class="lg-footer">
                 Butuh bantuan? <a href="#">Hubungi Admin</a>
