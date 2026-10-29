@@ -183,6 +183,7 @@ class DocumentController
 
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) {
+            http_response_code(400);
             exit('Invalid ID');
         }
 
@@ -210,10 +211,11 @@ class DocumentController
         }
 
         if (!$doc) {
+            http_response_code(404);
             exit('Dokumen tidak ditemukan di database.');
         }
 
-        // 3. VERIFIKASI AKSES (Sama seperti sebelumnya)
+        // 3. VERIFIKASI AKSES (Diperbaiki: Menambahkan cek Reviewer untuk Dosen)
         $canAccess = false;
         $userRole = $_SESSION['simbita_user']['role'] ?? null;
         $userId = $_SESSION['simbita_user']['id'] ?? null;
@@ -225,12 +227,21 @@ class DocumentController
             $stmt->execute([$doc['academic_work_id'], $userId]);
             $canAccess = (bool)$stmt->fetch();
         } elseif ($userRole === 'lecturer') {
+            // Cek apakah dosen adalah pembimbing
             $stmt = $db->prepare('SELECT 1 FROM supervision_assignments sa JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id WHERE sa.academic_work_id = ? AND lp.user_id = ? AND sa.is_active = 1 LIMIT 1');
             $stmt->execute([$doc['academic_work_id'], $userId]);
             $canAccess = (bool)$stmt->fetch();
+            
+            // Cek juga jika dosen adalah reviewer
+            if (!$canAccess) {
+                $stmt = $db->prepare('SELECT 1 FROM reviews r WHERE r.document_version_id = ? AND r.reviewer_id = ? LIMIT 1');
+                $stmt->execute([$id, $userId]);
+                $canAccess = (bool)$stmt->fetch();
+            }
         }
 
         if (!$canAccess) {
+            http_response_code(403);
             exit('Akses ditolak.');
         }
 
@@ -243,44 +254,76 @@ class DocumentController
         ];
 
         foreach ($candidates as $candidate) {
-            if ($candidate && file_exists($candidate) && is_readable($candidate) && filesize($candidate) > 100) {
+            if ($candidate && file_exists($candidate) && is_readable($candidate) && filesize($candidate) > 0) {
                 $filePath = $candidate;
                 break;
             }
         }
 
         if (!$filePath) {
-            exit('File fisik tidak ditemukan.');
+            http_response_code(404);
+            exit('File fisik tidak ditemukan atau rusak.');
         }
 
-        // 5. STREAMING FILE (BAGIAN KRITIS - ANTI KOSONG)
+        $fileSize = filesize($filePath);
+
+        // 5. STREAMING FILE DENGAN DUKUNGAN HTTP RANGE (PENTING UNTUK PDF.JS)
         
         // A. Bersihkan SEMUA output buffer yang ada (Wajib!)
-        while (ob_get_level()) {
+        while (ob_get_level() > 0) {
             ob_end_clean();
         }
         
-        // B. Matikan kompresi output (bisa bikin PDF korup/kosong)
+        // B. Matikan kompresi output
         if (function_exists('apache_setenv')) {
             @apache_setenv('no-gzip', 1);
         }
         @ini_set('zlib.output_compression', 0);
         @ini_set('implicit_flush', 1);
 
-        // C. Kirim Header PDF
+        // C. Kirim Header PDF Dasar
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
-        header('Content-Length: ' . filesize($filePath));
-        header('Cache-Control: private, max-age=0');
+        header('Cache-Control: private, max-age=3600');
         header('Accept-Ranges: bytes');
-        
-        // D. Flush buffer sistem
-        flush();
 
-        // E. Baca dan Output File (Gunakan readfile untuk kestabilan maksimal)
-        readfile($filePath);
+        // D. Dukungan HTTP Range Request (Kunci agar PDF.js tidak gagal load)
+        if (isset($_SERVER['HTTP_RANGE'])) {
+            $range = $_SERVER['HTTP_RANGE'];
+            if (preg_match('/bytes=(\d+)-(\d*)/', $range, $matches)) {
+                $start = (int)$matches[1];
+                $end = $matches[2] !== '' ? (int)$matches[2] : $fileSize - 1;
+                $length = $end - $start + 1;
+                
+                http_response_code(206); // 206 Partial Content
+                header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
+                header('Content-Length: ' . $length);
+                
+                $handle = fopen($filePath, 'rb');
+                fseek($handle, $start);
+                echo fread($handle, $length);
+                fclose($handle);
+                exit;
+            }
+        }
+
+        // E. Full file streaming (Stabil untuk file besar > 1MB)
+        header('Content-Length: ' . $fileSize);
         
-        // F. Matikan script segera (Penting agar tidak ada HTML footer yang ikut tercampur)
+        if ($fileSize > 1048576) {
+            $handle = fopen($filePath, 'rb');
+            if ($handle) {
+                while (!feof($handle)) {
+                    echo fread($handle, 8192);
+                    flush();
+                }
+                fclose($handle);
+            }
+        } else {
+            readfile($filePath);
+        }
+        
+        // F. Matikan script segera
         exit;
     }
 
