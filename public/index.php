@@ -1,28 +1,10 @@
 <?php
 declare(strict_types=1);
-session_start(); 
+
 /**
- * =====================================================================
- * SIMBITA - MAIN ENTRY POINT
- * FINAL ULTRA PREMIUM - ENTERPRISE GRADE
- * =====================================================================
+ * 1. SIMBITA - MAIN ENTRY POINT
  */
 
-// =====================================================================
-// 0. ERROR REPORTING (Development Mode)
-// =====================================================================
-error_reporting(E_ALL);
-ini_set('display_errors', '1');
-ini_set('log_errors', '1');
-ini_set('error_log', dirname(__DIR__) . '/logs/php_error.log');
-
-if (!is_dir(dirname(__DIR__) . '/logs')) {
-    @mkdir(dirname(__DIR__) . '/logs', 0755, true);
-}
-
-// =====================================================================
-// 1. MUAT KONFIGURASI & CORE
-// =====================================================================
 try {
     require_once dirname(__DIR__) . '/config/config.php';
     require_once dirname(__DIR__) . '/config/database.php';
@@ -30,8 +12,9 @@ try {
     require_once dirname(__DIR__) . '/app/Core/Csrf.php';
     require_once dirname(__DIR__) . '/app/Core/Auth.php';
 } catch (Throwable $e) {
+    error_log('[Bootstrap: core] ' . $e->getMessage());
     http_response_code(500);
-    die('<h1>⚠️ Fatal Error: Core Files</h1><pre>' . htmlspecialchars($e->getMessage()) . '</pre>');
+    exit('Terjadi kesalahan internal pada server.');
 }
 
 // =====================================================================
@@ -48,8 +31,9 @@ try {
     require_once dirname(__DIR__) . '/app/Models/LecturerExpertise.php';
     require_once dirname(__DIR__) . '/app/Models/Analytics.php';
 } catch (Throwable $e) {
+    error_log('[Bootstrap: models] ' . $e->getMessage());
     http_response_code(500);
-    die('<h1>⚠️ Fatal Error: Models</h1><pre>' . htmlspecialchars($e->getMessage()) . '</pre>');
+    exit('Terjadi kesalahan internal pada server.');
 }
 
 // =====================================================================
@@ -73,8 +57,9 @@ try {
     require_once dirname(__DIR__) . '/app/Controllers/RecommendController.php';
     require_once dirname(__DIR__) . '/app/Controllers/ReportController.php';
 } catch (Throwable $e) {
+    error_log('[Bootstrap: models] ' . $e->getMessage());
     http_response_code(500);
-    die('<h1>⚠️ Fatal Error: Controllers</h1><pre>' . htmlspecialchars($e->getMessage()) . '</pre>');
+    exit('Terjadi kesalahan internal pada server.');
 }
 
 // =====================================================================
@@ -84,6 +69,8 @@ try {
     Auth::start();
 } catch (Throwable $e) {
     error_log('[Auth::start] ' . $e->getMessage());
+    http_response_code(500);
+    exit('Terjadi kesalahan internal pada server.');
 }
 
 // =====================================================================

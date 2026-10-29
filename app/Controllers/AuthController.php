@@ -36,6 +36,7 @@ class AuthController
         }
 
         $_SESSION['simbita_user'] = [
+        session_regenerate_id(true);
             'id' => (int)$user['id'],
             'name' => $user['name'],
             'email' => $user['email'],
@@ -48,7 +49,13 @@ class AuthController
             $db = Database::connection();
             $stmt = $db->prepare('UPDATE users SET remember_token = ? WHERE id = ?');
             $stmt->execute([$token, $user['id']]);
-            setcookie('simbita_remember', $token, time() + REMEMBER_LIFETIME, '/');
+            setcookie('simbita_remember', $token, [
+            'expires' => time() + REMEMBER_LIFETIME,
+            'path' => '/',
+            'secure' => defined('IS_HTTPS') && IS_HTTPS,
+            'httponly' => true,
+            'samesite' => 'Lax',
+    ]);
         }
 
         // Update last login
@@ -73,30 +80,19 @@ class AuthController
         require dirname(__DIR__) . '/Views/auth/forgot_password.php';
     }
 
-    public static function processForgotPassword(): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            redirect('/login');
-        }
-        
-        $email = trim($_POST['email'] ?? '');
-        $user = User::findByEmail($email);
-        
-        // Best practice keamanan: Selalu tampilkan pesan sukses agar tidak bisa menebak email terdaftar
-        if ($user) {
-            $token = bin2hex(random_bytes(16));
-            $db = Database::connection();
-            // Simpan token di kolom remember_token (sebagai simulasi reset token)
-            $stmt = $db->prepare('UPDATE users SET remember_token = ? WHERE id = ?');
-            $stmt->execute([$token, $user['id']]);
-            
-            $_SESSION['flash_success'] = "Link reset password telah dikirim ke {$email}.<br><strong>(MODE DEMO: Token reset Anda adalah: <code>{$token}</code>)</strong>";
-        } else {
-            $_SESSION['flash_success'] = "Jika email terdaftar, link reset password telah dikirim.";
-        }
-        
-        redirect('/login');
+public static function processForgotPassword(): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        header('Allow: POST');
+        return;
     }
+
+    $_SESSION['flash_error'] =
+        'Fitur reset kata sandi sementara dinonaktifkan. Silakan hubungi administrator.';
+
+    redirect('/login');
+}
 
     // =================================================================
     // FITUR UBAH PASSWORD (BARU DITAMBAHKAN)

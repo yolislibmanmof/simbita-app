@@ -1,26 +1,25 @@
 <?php
 declare(strict_types=1);
 
-/**
- * =====================================================================
- * SIMBITA - GLOBAL CONFIGURATION
- * FINAL ULTRA PREMIUM - ENTERPRISE GRADE
- * =====================================================================
- * File ini berisi semua konstanta global aplikasi.
- * Dipanggil pertama kali oleh index.php.
- */
-
 // =====================================================================
 // 1. ERROR REPORTING
 // =====================================================================
+$debugValue = getenv('APP_DEBUG');
+
+define(
+    'APP_DEBUG',
+    filter_var($debugValue === false ? 'false' : $debugValue, FILTER_VALIDATE_BOOLEAN)
+);
+
 error_reporting(E_ALL);
-ini_set('display_errors', '1');      // Development: tampilkan error
+ini_set('display_errors', APP_DEBUG ? '1' : '0');
 ini_set('log_errors', '1');
 ini_set('error_log', dirname(__DIR__) . '/logs/php_error.log');
 
-// Pastikan folder logs ada
-if (!is_dir(dirname(__DIR__) . '/logs')) {
-    @mkdir(dirname(__DIR__) . '/logs', 0755, true);
+$logDirectory = dirname(__DIR__) . '/logs';
+
+if (!is_dir($logDirectory) && !mkdir($logDirectory, 0755, true) && !is_dir($logDirectory)) {
+    error_log('SIMBITA: gagal membuat direktori log.');
 }
 
 // =====================================================================
@@ -44,7 +43,7 @@ define('APP_VERSION', '1.0.0');
  * true  = Development (tampilkan error detail + akun demo di login)
  * false = Production  (error disembunyikan, hanya log)
  */
-define('APP_DEBUG', true);
+define('APP_DEBUG', false);
 
 // =====================================================================
 // 5. DATABASE CONFIGURATION

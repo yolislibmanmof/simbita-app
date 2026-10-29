@@ -1280,13 +1280,13 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
         let currentAnnotations = [];
         let pendingClick = null;
 
-        const canvas = document.getElementById('pdfCanvas');
-        const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('pdfCanvas');
+const ctx = canvas?.getContext('2d') ?? null;
         const annotLayer = document.getElementById('annotationLayer');
 
         // Render Halaman PDF
         const renderPage = (num) => {
-            if (!pdfDoc) return;
+            if (!pdfDoc || !canvas || !ctx) return;
             pageRendering = true;
             pdfDoc.getPage(num).then((page) => {
                 const viewport = page.getViewport({ scale });
@@ -1302,40 +1302,35 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
             });
         };
 
-        const loadPdfSafe = (url) => {
-            const grab = (u) => fetch(u, { credentials: 'same-origin' }).then(r => {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.arrayBuffer();
-            });
-            return grab(url).then(buf => {
-                if (buf.byteLength > 0) return buf;
-                // Cadangan otomatis: minta versi base64
-                return fetch(url + (url.includes('?') ? '&' : '?') + 'enc=base64', { credentials: 'same-origin' })
-                    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-                    .then(b64 => {
-                        const bin = atob(b64.trim());
-                        const arr = new Uint8Array(bin.length);
-                        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-                        return arr.buffer;
-                    });
-            }).then(buf => {
-                if (!buf.byteLength) throw new Error('Server mengirim PDF kosong');
-                return pdfjsLib.getDocument({ data: buf }).promise;
-            });
-        };
+const loadPdfSafe = async (url) => {
+    const response = await fetch(url, { credentials: 'same-origin' });
 
-            
-        // ⭐ PANGGIL loadPdfSafe untuk memuat PDF
-        if (pdfUrl) {
-            loadPdfSafe(pdfUrl).then((pdf) => {
-                pdfDoc = pdf;
-                renderPage(pageNum);
-                fetchAnnotations();
-            }).catch(err => {
-                console.error('PDF Load Error:', err);
-                alert('Gagal memuat PDF. Silakan refresh halaman.');
-            });
-        }
+    if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+    }
+
+    const buffer = await response.arrayBuffer();
+
+    if (buffer.byteLength === 0) {
+        throw new Error('Server mengirim PDF kosong');
+    }
+
+    return pdfjsLib.getDocument({ data: buffer }).promise;
+};
+
+// Panggil loadPdfSafe untuk memuat PDF
+if (pdfUrl) {
+    loadPdfSafe(pdfUrl)
+        .then((pdf) => {
+            pdfDoc = pdf;
+            renderPage(pageNum);
+            fetchAnnotations();
+        })
+        .catch((err) => {
+            console.error('PDF Load Error:', err);
+            alert('Gagal memuat PDF. Silakan refresh halaman.');
+        });
+}
 
         // Navigasi & Zoom
         document.getElementById('prevPage')?.addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });

@@ -203,3 +203,6 @@
 [29-Oct-2026 06:49:48 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
 [29-Oct-2026 06:49:48 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
 [29-Oct-2026 06:50:10 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[29-Oct-2026 06:54:16 Asia/Jakarta] [Database] Connected to simbita_db @ localhost
+[29-Oct-2026 07:43:06 Asia/Jakarta] PHP Warning:  Constant APP_DEBUG already defined in C:\laragon\www\simbita-app\config\config.php on line 46
+[29-Oct-2026 07:43:06 Asia/Jakarta] [Bootstrap: models] syntax error, unexpected token ";", expecting "]"

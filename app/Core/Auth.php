@@ -4,34 +4,82 @@ declare(strict_types=1);
 class Auth
 {
     private const SESSION_KEY = 'simbita_user';
+    private const REMEMBER_COOKIE = 'simbita_remember';
+
+    private static function rememberCookieOptions(int $expires): array
+    {
+        return [
+            'expires' => $expires,
+            'path' => '/',
+            'secure' => defined('IS_HTTPS') && IS_HTTPS,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ];
+    }
+
+    private static function clearRememberCookie(): void
+    {
+        setcookie(
+            self::REMEMBER_COOKIE,
+            '',
+            self::rememberCookieOptions(time() - 3600)
+        );
+
+        unset($_COOKIE[self::REMEMBER_COOKIE]);
+    }
 
     public static function start(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_name(SESSION_NAME);
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.use_only_cookies', '1');
+
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'secure' => defined('IS_HTTPS') && IS_HTTPS,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+
             session_start();
         }
 
-        // Cek cookie "Remember Me" jika session belum ada
-        if (!self::check() && isset($_COOKIE['simbita_remember'])) {
-            $token = $_COOKIE['simbita_remember'];
-            $db = Database::connection();
-            $stmt = $db->prepare('SELECT id, name, email, role FROM users WHERE remember_token = ? AND is_active = 1');
-            $stmt->execute([$token]);
-            $user = $stmt->fetch();
-            
-            if ($user) {
-                $_SESSION['simbita_user'] = [
-                    'id' => (int)$user['id'],
-                    'name' => $user['name'],
-                    'email' => $user['email'],
-                    'role' => $user['role']
-                ];
-            } else {
-                // Token tidak valid, hapus cookie
-                setcookie('simbita_remember', '', time() - 3600, '/');
-            }
+        if (self::check() || !isset($_COOKIE[self::REMEMBER_COOKIE])) {
+            return;
         }
+
+        $token = $_COOKIE[self::REMEMBER_COOKIE];
+
+        if (!is_string($token) || !preg_match('/\A[a-f0-9]{64}\z/i', $token)) {
+            self::clearRememberCookie();
+            return;
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare(
+            'SELECT id, name, email, role
+             FROM users
+             WHERE remember_token = ? AND is_active = 1
+             LIMIT 1'
+        );
+        $stmt->execute([$token]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            self::clearRememberCookie();
+            return;
+        }
+
+        session_regenerate_id(true);
+
+        $_SESSION[self::SESSION_KEY] = [
+            'id' => (int)$user['id'],
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'role' => $user['role'],
+        ];
     }
 
     public static function check(): bool
@@ -41,7 +89,9 @@ class Auth
 
     public static function id(): ?int
     {
-        return $_SESSION[self::SESSION_KEY]['id'] ?? null;
+        return isset($_SESSION[self::SESSION_KEY]['id'])
+            ? (int)$_SESSION[self::SESSION_KEY]['id']
+            : null;
     }
 
     public static function role(): ?string
@@ -64,18 +114,30 @@ class Auth
 
     public static function logout(): void
     {
-        // Hapus cookie Remember Me jika ada
-        if (isset($_COOKIE['simbita_remember'])) {
-            if (self::check()) {
-                $db = Database::connection();
-                $stmt = $db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?');
-                $stmt->execute([self::id()]);
-            }
-            setcookie('simbita_remember', '', time() - 3600, '/');
+        $userId = self::id();
+
+        if ($userId !== null) {
+            $db = Database::connection();
+            $stmt = $db->prepare(
+                'UPDATE users SET remember_token = NULL WHERE id = ?'
+            );
+            $stmt->execute([$userId]);
         }
-        
-        session_unset();
-        session_destroy();
+
+        self::clearRememberCookie();
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION = [];
+            session_destroy();
+
+            setcookie(
+                session_name(),
+                '',
+                session_get_cookie_params()
+                    + ['expires' => time() - 42000]
+            );
+        }
+
         header('Location: ' . BASE_URL . '/login');
         exit;
     }
