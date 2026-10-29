@@ -174,163 +174,113 @@ class DocumentController
         }
     }
 
-    /**
-     * Download dokumen dengan verifikasi hak akses ketat (STABIL & TANPA LIBRARY EKSTERNAL)
-     */
     public static function download(): void
     {
-        Auth::start();
+        // 1. Inisialisasi Session (Wajib untuk Auth)
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) {
-            http_response_code(400);
-            die('Parameter dokumen tidak valid.');
+            exit('Invalid ID');
         }
 
         $db = Database::connection();
+        $doc = null;
 
-        // LAYER 1: Cari sebagai version_id
-        $stmt = $db->prepare('
-            SELECT dv.*, d.academic_work_id
-            FROM document_versions dv
-            JOIN documents d ON dv.document_id = d.id
-            WHERE dv.id = ?
-        ');
+        // 2. LOGIKA PENCARIAN DOKUMEN (3 LAYER FALLBACK)
+        // Layer 1: Cari berdasarkan document_versions.id
+        $stmt = $db->prepare('SELECT dv.*, d.academic_work_id FROM document_versions dv JOIN documents d ON dv.document_id = d.id WHERE dv.id = ? LIMIT 1');
         $stmt->execute([$id]);
         $doc = $stmt->fetch();
 
-        // LAYER 2: Fallback ke document_id → versi aktif
+        // Layer 2: Cari berdasarkan documents.id (ambil versi current)
         if (!$doc) {
-            $stmt = $db->prepare('
-                SELECT dv.*, d.academic_work_id
-                FROM document_versions dv
-                JOIN documents d ON dv.document_id = d.id
-                WHERE d.id = ? AND dv.is_current = 1
-            ');
+            $stmt = $db->prepare('SELECT dv.*, d.academic_work_id FROM document_versions dv JOIN documents d ON dv.document_id = d.id WHERE d.id = ? AND dv.is_current = 1 LIMIT 1');
             $stmt->execute([$id]);
             $doc = $stmt->fetch();
         }
 
-        // LAYER 3: Fallback versi terbaru
+        // Layer 3: Cari berdasarkan documents.id (ambil versi terbaru)
         if (!$doc) {
-            $stmt = $db->prepare('
-                SELECT dv.*, d.academic_work_id
-                FROM document_versions dv
-                JOIN documents d ON dv.document_id = d.id
-                WHERE d.id = ?
-                ORDER BY dv.version_number DESC, dv.id DESC
-                LIMIT 1
-            ');
+            $stmt = $db->prepare('SELECT dv.*, d.academic_work_id FROM document_versions dv JOIN documents d ON dv.document_id = d.id WHERE d.id = ? ORDER BY dv.id DESC LIMIT 1');
             $stmt->execute([$id]);
             $doc = $stmt->fetch();
         }
 
         if (!$doc) {
-            http_response_code(404);
-            die('Record dokumen tidak ditemukan untuk id=' . $id . '.');
+            exit('Dokumen tidak ditemukan di database.');
         }
 
-        // VERIFIKASI HAK AKSES (RBAC)
+        // 3. VERIFIKASI AKSES (Sama seperti sebelumnya)
         $canAccess = false;
-        $userRole = Auth::role();
-        $userId = Auth::id();
+        $userRole = $_SESSION['simbita_user']['role'] ?? null;
+        $userId = $_SESSION['simbita_user']['id'] ?? null;
 
         if ($userRole === 'admin') {
             $canAccess = true;
         } elseif ($userRole === 'student') {
-            $stmt = $db->prepare('
-                SELECT 1 FROM academic_works aw
-                JOIN student_profiles sp ON aw.student_id = sp.id
-                WHERE aw.id = ? AND sp.user_id = ? LIMIT 1
-            ');
+            $stmt = $db->prepare('SELECT 1 FROM academic_works aw JOIN student_profiles sp ON aw.student_id = sp.id WHERE aw.id = ? AND sp.user_id = ? LIMIT 1');
             $stmt->execute([$doc['academic_work_id'], $userId]);
             $canAccess = (bool)$stmt->fetch();
         } elseif ($userRole === 'lecturer') {
-            $stmt = $db->prepare('
-                SELECT 1 FROM supervision_assignments sa
-                JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id
-                WHERE sa.academic_work_id = ? AND lp.user_id = ? AND sa.is_active = 1 LIMIT 1
-            ');
+            $stmt = $db->prepare('SELECT 1 FROM supervision_assignments sa JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id WHERE sa.academic_work_id = ? AND lp.user_id = ? AND sa.is_active = 1 LIMIT 1');
             $stmt->execute([$doc['academic_work_id'], $userId]);
             $canAccess = (bool)$stmt->fetch();
         }
 
         if (!$canAccess) {
-            http_response_code(403);
-            die('Akses ditolak. Anda tidak memiliki izin untuk mengunduh dokumen ini.');
+            exit('Akses ditolak.');
         }
 
-        // RESOLUSI PATH FILE
+        // 4. MENCARI FILE FISIK
         $filePath = null;
-        $candidates = [];
-
-        if (!empty($doc['file_path'])) {
-            $candidates[] = $doc['file_path'];
-        }
-
-        if (defined('STORAGE_PATH') && !empty($doc['stored_filename'])) {
-            $candidates[] = STORAGE_PATH . '/' . $doc['stored_filename'];
-            $candidates[] = STORAGE_PATH . '/documents/' . $doc['stored_filename'];
-        }
-
-        $projectRoot = dirname(__DIR__, 2);
-        if (!empty($doc['stored_filename'])) {
-            $candidates[] = $projectRoot . '/storage/documents/' . $doc['stored_filename'];
-            $candidates[] = $projectRoot . '/storage/' . $doc['stored_filename'];
-        }
+        $candidates = [
+            $doc['file_path'] ?? null,
+            defined('STORAGE_PATH') ? STORAGE_PATH . '/' . ($doc['stored_filename'] ?? '') : null,
+            dirname(__DIR__, 2) . '/storage/documents/' . ($doc['stored_filename'] ?? ''),
+        ];
 
         foreach ($candidates as $candidate) {
-            if ($candidate && file_exists($candidate) && is_readable($candidate)) {
+            if ($candidate && file_exists($candidate) && is_readable($candidate) && filesize($candidate) > 100) {
                 $filePath = $candidate;
                 break;
             }
         }
 
         if (!$filePath) {
-            http_response_code(404);
-            $debug = (defined('APP_DEBUG') && APP_DEBUG)
-                ? ' Path dicoba: ' . htmlspecialchars(implode(' | ', $candidates))
-                : '';
-            die('File fisik tidak ditemukan di server.' . $debug);
+            exit('File fisik tidak ditemukan.');
         }
 
-        // VALIDASI FILE - Pastikan bukan file kosong/corrupt
-        $fileSize = filesize($filePath);
-        if ($fileSize < 100) {
-            http_response_code(404);
-            die('File PDF rusak atau kosong (size: ' . $fileSize . ' bytes). Silakan upload ulang dokumen.');
-        }
-
-        // STREAMING FILE ASLI (STABIL & TANPA ERROR LIBRARY)
-        $safeFilename = preg_replace('/[^\w\.\-]/', '_', (string)($doc['original_filename'] ?? 'document.pdf'));
-
-        // Clear SEMUA output buffer
-        while (ob_get_level() > 0) {
+        // 5. STREAMING FILE (BAGIAN KRITIS - ANTI KOSONG)
+        
+        // A. Bersihkan SEMUA output buffer yang ada (Wajib!)
+        while (ob_get_level()) {
             ob_end_clean();
         }
-
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: inline; filename="' . $safeFilename . '"');
-        header('Content-Length: ' . $fileSize);
-        header('Cache-Control: private, no-cache, no-store, must-revalidate');
-        header('Pragma: no-cache');
-        http_response_code(200);
-        header('Expires: 0');
-
-        // Stream PDF
-        if ($fileSize > 1048576) { // > 1MB
-            $handle = fopen($filePath, 'rb');
-            if ($handle) {
-                while (!feof($handle)) {
-                    echo fread($handle, 8192);
-                    flush();
-                }
-                fclose($handle);
-            }
-        } else {
-            readfile($filePath);
-        }
         
+        // B. Matikan kompresi output (bisa bikin PDF korup/kosong)
+        if (function_exists('apache_setenv')) {
+            @apache_setenv('no-gzip', 1);
+        }
+        @ini_set('zlib.output_compression', 0);
+        @ini_set('implicit_flush', 1);
+
+        // C. Kirim Header PDF
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
+        header('Content-Length: ' . filesize($filePath));
+        header('Cache-Control: private, max-age=0');
+        header('Accept-Ranges: bytes');
+        
+        // D. Flush buffer sistem
+        flush();
+
+        // E. Baca dan Output File (Gunakan readfile untuk kestabilan maksimal)
+        readfile($filePath);
+        
+        // F. Matikan script segera (Penting agar tidak ada HTML footer yang ikut tercampur)
         exit;
     }
 

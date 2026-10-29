@@ -1,169 +1,186 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/config/config.php';
-require_once dirname(__DIR__) . '/config/database.php';
-require_once dirname(__DIR__) . '/app/Core/Auth.php';
-
-// Selaraskan dengan public/index.php yang saat ini memulai sesi sebelum config dimuat.
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/**
+ * SIMBITA - PDF Viewer Endpoint
+ * Endpoint khusus untuk PDF.js viewer dengan otentikasi
+ * Route: GET /pdf.php?id=X
+ */
 
 try {
+    require_once dirname(__DIR__) . '/config/config.php';
+    require_once dirname(__DIR__) . '/config/database.php';
+    require_once dirname(__DIR__) . '/app/Core/Helpers.php';
+    require_once dirname(__DIR__) . '/app/Core/Csrf.php';
+    require_once dirname(__DIR__) . '/app/Core/Auth.php';
+    require_once dirname(__DIR__) . '/app/Models/User.php';
+    require_once dirname(__DIR__) . '/app/Models/AcademicWork.php';
+    
     Auth::start();
-
+    
+    // Verifikasi login
     if (!Auth::check()) {
         http_response_code(401);
-        exit('Silakan login untuk mengakses dokumen.');
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Unauthorized']);
+        exit;
     }
-
-    $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-    if (!$id || $id < 1) {
+    
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id <= 0) {
         http_response_code(400);
-        exit('ID dokumen tidak valid.');
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Invalid ID']);
+        exit;
     }
-
+    
     $db = Database::connection();
-
-    // Terima ID versi dokumen, atau ID dokumen lama untuk menjaga kompatibilitas.
-    $stmt = $db->prepare(
-        'SELECT dv.*, d.academic_work_id
-         FROM document_versions dv
-         JOIN documents d ON dv.document_id = d.id
-         WHERE dv.id = ?'
-    );
+    $userId = Auth::id();
+    $userRole = Auth::role();
+    
+    // Ambil data document version
+    $stmt = $db->prepare('
+        SELECT dv.*, d.academic_work_id
+        FROM document_versions dv
+        JOIN documents d ON dv.document_id = d.id
+        WHERE dv.id = ?
+    ');
     $stmt->execute([$id]);
     $doc = $stmt->fetch();
-
-    if (!$doc) {
-        $stmt = $db->prepare(
-            'SELECT dv.*, d.academic_work_id
-             FROM document_versions dv
-             JOIN documents d ON dv.document_id = d.id
-             WHERE d.id = ?
-             ORDER BY dv.version_number DESC, dv.id DESC
-             LIMIT 1'
-        );
-        $stmt->execute([$id]);
-        $doc = $stmt->fetch();
-    }
-
+    
     if (!$doc) {
         http_response_code(404);
-        exit('Dokumen tidak ditemukan.');
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Document not found']);
+        exit;
     }
-
-    $allowed = false;
-    $role = Auth::role();
-    $userId = Auth::id();
-
-    if ($role === 'admin') {
-        $allowed = true;
-    } elseif ($role === 'student' && $userId !== null) {
-        $stmt = $db->prepare(
-            'SELECT 1
-             FROM academic_works aw
-             JOIN student_profiles sp ON sp.id = aw.student_id
-             WHERE aw.id = ? AND sp.user_id = ?
-             LIMIT 1'
-        );
-        $stmt->execute([(int)$doc['academic_work_id'], $userId]);
-        $allowed = (bool)$stmt->fetchColumn();
-    } elseif ($role === 'lecturer' && $userId !== null) {
-        $stmt = $db->prepare(
-            'SELECT 1
-             FROM supervision_assignments sa
-             JOIN lecturer_profiles lp ON lp.id = sa.lecturer_id
-             WHERE sa.academic_work_id = ?
-               AND lp.user_id = ?
-               AND sa.is_active = 1
-             LIMIT 1'
-        );
-        $stmt->execute([(int)$doc['academic_work_id'], $userId]);
-        $allowed = (bool)$stmt->fetchColumn();
+    
+    // Verifikasi akses
+    $canAccess = false;
+    
+    if ($userRole === 'admin') {
+        $canAccess = true;
+    } elseif ($userRole === 'lecturer') {
+        // Cek apakah dosen adalah pembimbing
+        $stmt = $db->prepare('
+            SELECT 1 FROM supervision_assignments sa
+            JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id
+            WHERE sa.academic_work_id = ? AND lp.user_id = ? AND sa.is_active = 1
+        ');
+        $stmt->execute([$doc['academic_work_id'], $userId]);
+        $canAccess = (bool)$stmt->fetch();
+        
+        // Cek juga jika dosen adalah reviewer
+        if (!$canAccess) {
+            $stmt = $db->prepare('
+                SELECT 1 FROM reviews r
+                WHERE r.document_version_id = ? AND r.reviewer_id = ?
+            ');
+            $stmt->execute([$id, $userId]);
+            $canAccess = (bool)$stmt->fetch();
+        }
+    } elseif ($userRole === 'student') {
+        // Mahasiswa hanya bisa akses dokumen sendiri
+        $stmt = $db->prepare('
+            SELECT 1 FROM academic_works aw
+            JOIN student_profiles sp ON aw.student_id = sp.id
+            WHERE aw.id = ? AND sp.user_id = ?
+        ');
+        $stmt->execute([$doc['academic_work_id'], $userId]);
+        $canAccess = (bool)$stmt->fetch();
     }
-
-    if (!$allowed) {
+    
+    if (!$canAccess) {
         http_response_code(403);
-        exit('Anda tidak memiliki izin untuk mengakses dokumen ini.');
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Access denied']);
+        exit;
     }
-
-    // Hanya izinkan file yang berada di dalam direktori penyimpanan dokumen.
-    $storageRoot = realpath(STORAGE_PATH);
-    if ($storageRoot === false) {
-        http_response_code(404);
-        exit('File dokumen tidak tersedia.');
-    }
-
+    
+    // Resolve file path
+    $filePath = null;
     $candidates = [];
+    
     if (!empty($doc['file_path'])) {
-        $candidates[] = (string)$doc['file_path'];
+        $candidates[] = $doc['file_path'];
     }
     if (!empty($doc['stored_filename'])) {
-        $storedFilename = (string)$doc['stored_filename'];
-        if (basename($storedFilename) === $storedFilename) {
-            $candidates[] = $storageRoot . DIRECTORY_SEPARATOR . $storedFilename;
-        }
+        $candidates[] = dirname(__DIR__) . '/storage/documents/' . $doc['stored_filename'];
     }
-
-    $path = null;
-    $storagePrefix = rtrim($storageRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-
+    
     foreach ($candidates as $candidate) {
-        $resolved = realpath($candidate);
-        if ($resolved === false || !is_file($resolved) || !is_readable($resolved)) {
-            continue;
-        }
-
-        $insideStorage = DIRECTORY_SEPARATOR === '\\'
-            ? strncasecmp($resolved, $storagePrefix, strlen($storagePrefix)) === 0
-            : strncmp($resolved, $storagePrefix, strlen($storagePrefix)) === 0;
-
-        if ($insideStorage) {
-            $path = $resolved;
+        if ($candidate && file_exists($candidate) && is_readable($candidate)) {
+            $filePath = $candidate;
             break;
         }
     }
-
-    if ($path === null) {
+    
+    if (!$filePath) {
         http_response_code(404);
-        exit('File dokumen tidak tersedia.');
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'File not found on server']);
+        exit;
     }
-
-    $fileInfo = new finfo(FILEINFO_MIME_TYPE);
-    if ($fileInfo->file($path) !== 'application/pdf') {
-        http_response_code(415);
-        exit('File ini bukan PDF.');
+    
+    // Validasi file
+    $fileSize = filesize($filePath);
+    if ($fileSize < 100) {
+        http_response_code(404);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'File corrupted or empty']);
+        exit;
     }
-
-    $fileSize = filesize($path);
-    if ($fileSize === false) {
-        http_response_code(500);
-        exit('File dokumen tidak dapat dibaca.');
-    }
-
-    $filename = preg_replace(
-        '/[^\w.-]/',
-        '_',
-        (string)($doc['original_filename'] ?? 'document.pdf')
-    ) ?: 'document.pdf';
-
-    header('Content-Type: application/pdf');
-    header('Content-Length: ' . $fileSize);
-    header('Content-Disposition: inline; filename="' . $filename . '"');
-    header('Cache-Control: no-store, private');
-    header('X-Content-Type-Options: nosniff');
-    header('Accept-Ranges: none');
-
+    
+    // Streaming PDF dengan header yang benar untuk PDF.js
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-
-    readfile($path);
+    
+    header('Content-Type: application/pdf');
+    header('Content-Length: ' . $fileSize);
+    header('Cache-Control: private, max-age=3600');
+    header('Accept-Ranges: bytes');
+    
+    // Support range requests untuk PDF.js
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        $range = $_SERVER['HTTP_RANGE'];
+        if (preg_match('/bytes=(\d+)-(\d*)/', $range, $matches)) {
+            $start = (int)$matches[1];
+            $end = $matches[2] !== '' ? (int)$matches[2] : $fileSize - 1;
+            $length = $end - $start + 1;
+            
+            header('HTTP/1.1 206 Partial Content');
+            header("Content-Range: bytes $start-$end/$fileSize");
+            header('Content-Length: ' . $length);
+            
+            $handle = fopen($filePath, 'rb');
+            fseek($handle, $start);
+            echo fread($handle, $length);
+            fclose($handle);
+            exit;
+        }
+    }
+    
+    // Full file streaming
+    if ($fileSize > 1048576) {
+        $handle = fopen($filePath, 'rb');
+        if ($handle) {
+            while (!feof($handle)) {
+                echo fread($handle, 8192);
+                flush();
+            }
+            fclose($handle);
+        }
+    } else {
+        readfile($filePath);
+    }
+    
     exit;
+    
 } catch (Throwable $e) {
-    error_log('[PDF streamer] ' . $e->getMessage());
+    error_log('[pdf.php] ' . $e->getMessage());
     http_response_code(500);
-    exit('Terjadi kesalahan saat memuat dokumen.');
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Internal server error']);
+    exit;
 }

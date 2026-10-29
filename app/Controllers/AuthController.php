@@ -31,12 +31,11 @@ class AuthController
             exit;
         }
 
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        $_SESSION['simbita_user'] = [
+        // ✅ REGENERATE SESSION ID (pindahkan ke LUAR array)
         session_regenerate_id(true);
+
+        // ✅ SET SESSION (array sudah benar)
+        $_SESSION['simbita_user'] = [
             'id' => (int)$user['id'],
             'name' => $user['name'],
             'email' => $user['email'],
@@ -50,12 +49,12 @@ class AuthController
             $stmt = $db->prepare('UPDATE users SET remember_token = ? WHERE id = ?');
             $stmt->execute([$token, $user['id']]);
             setcookie('simbita_remember', $token, [
-            'expires' => time() + REMEMBER_LIFETIME,
-            'path' => '/',
-            'secure' => defined('IS_HTTPS') && IS_HTTPS,
-            'httponly' => true,
-            'samesite' => 'Lax',
-    ]);
+                'expires' => time() + REMEMBER_LIFETIME,
+                'path' => '/',
+                'secure' => defined('IS_HTTPS') && IS_HTTPS,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
         }
 
         // Update last login
@@ -69,7 +68,7 @@ class AuthController
 
     public static function logout(): void
     {
-        Auth::logout(); // Menggunakan method Auth::logout() yang sudah di-update
+        Auth::logout();
     }
 
     // =================================================================
@@ -80,26 +79,23 @@ class AuthController
         require dirname(__DIR__) . '/Views/auth/forgot_password.php';
     }
 
-public static function processForgotPassword(): void
-{
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        http_response_code(405);
-        header('Allow: POST');
-        return;
+    public static function processForgotPassword(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            header('Allow: POST');
+            return;
+        }
+
+        $_SESSION['flash_error'] = 'Fitur reset kata sandi sementara dinonaktifkan. Silakan hubungi administrator.';
+        redirect('/login');
     }
 
-    $_SESSION['flash_error'] =
-        'Fitur reset kata sandi sementara dinonaktifkan. Silakan hubungi administrator.';
-
-    redirect('/login');
-}
-
     // =================================================================
-    // FITUR UBAH PASSWORD (BARU DITAMBAHKAN)
+    // FITUR UBAH PASSWORD
     // =================================================================
     public static function showChangePassword(): void
     {
-        // Pastikan user sudah login (admin, lecturer, atau student)
         Auth::requireRole('admin', 'lecturer', 'student');
         require dirname(__DIR__) . '/Views/auth/change_password.php';
     }
@@ -118,25 +114,21 @@ public static function processForgotPassword(): void
         $newPassword = $_POST['new_password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
 
-        // 1. Validasi input tidak kosong
         if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
             $_SESSION['flash_error'] = 'Semua field wajib diisi.';
             redirect('/change-password');
         }
 
-        // 2. Validasi panjang password baru
         if (strlen($newPassword) < 6) {
             $_SESSION['flash_error'] = 'Password baru minimal 6 karakter.';
             redirect('/change-password');
         }
 
-        // 3. Validasi konfirmasi password
         if ($newPassword !== $confirmPassword) {
             $_SESSION['flash_error'] = 'Konfirmasi password tidak cocok.';
             redirect('/change-password');
         }
 
-        // 4. Verifikasi password lama
         $userId = Auth::id();
         $db = Database::connection();
         $stmt = $db->prepare('SELECT password_hash FROM users WHERE id = ?');
@@ -148,18 +140,14 @@ public static function processForgotPassword(): void
             redirect('/change-password');
         }
 
-        // 5. Update password baru dengan hashing yang aman
         $newHash = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 12]);
         $stmt = $db->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?');
         $stmt->execute([$newHash, $userId]);
 
-        // 6. Hapus semua remember_token agar user login ulang di device lain (keamanan ekstra)
         $db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
 
-        // 7. Berikan pesan sukses dan logout
         $_SESSION['flash_success'] = '✅ Password berhasil diubah. Silakan login ulang dengan password baru Anda.';
         
-        // Logout dan arahkan ke halaman login
         Auth::logout();
     }
 }

@@ -328,8 +328,8 @@ try {
         $path === '/api/documents/upload' && $method === 'POST' 
             => (function() { requireAuth(); DocumentController::upload(); })(),
         
-        $path === '/documents/download' && $method === 'GET' 
-            => (function() { requireAuth(); DocumentController::download(); })(),
+$path === '/documents/download' && in_array($method, ['GET', 'HEAD'], true) 
+    => (function() { requireAuth(); DocumentController::download(); })(),
 
         // =================================================================
         // REVIEW & COMMENTS API
@@ -487,7 +487,7 @@ try {
 <?= e($e->getTraceAsString()) ?></pre>
             </div>
             <?php endif; ?>
-            <a href="<?= e(BASE_URL) ?>/" class="btn">← Beranda</a>
+            <a href="<?= e(BASE_URL) ?>/" class="btn">← Beranda</a
             <a href="javascript:history.back()" class="btn">← Kembali</a>
         </div>
     </body>

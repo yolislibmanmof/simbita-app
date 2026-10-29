@@ -1,15 +1,9 @@
 <?php
 declare(strict_types=1);
 
-// =====================================================================
 // 1. ERROR REPORTING
-// =====================================================================
 $debugValue = getenv('APP_DEBUG');
-
-define(
-    'APP_DEBUG',
-    filter_var($debugValue === false ? 'false' : $debugValue, FILTER_VALIDATE_BOOLEAN)
-);
+define('APP_DEBUG', filter_var($debugValue === false ? 'false' : $debugValue, FILTER_VALIDATE_BOOLEAN));
 
 error_reporting(E_ALL);
 ini_set('display_errors', APP_DEBUG ? '1' : '0');
@@ -17,37 +11,19 @@ ini_set('log_errors', '1');
 ini_set('error_log', dirname(__DIR__) . '/logs/php_error.log');
 
 $logDirectory = dirname(__DIR__) . '/logs';
-
 if (!is_dir($logDirectory) && !mkdir($logDirectory, 0755, true) && !is_dir($logDirectory)) {
     error_log('SIMBITA: gagal membuat direktori log.');
 }
 
-// =====================================================================
 // 2. TIMEZONE
-// =====================================================================
-// PENTING: Set timezone Indonesia agar date() tidak warning
 date_default_timezone_set('Asia/Jakarta');
 
-// =====================================================================
 // 3. BASE URL & APP INFO
-// =====================================================================
-// ⚠️ GANTI sesuai lokasi aplikasi Anda
 define('BASE_URL', 'http://localhost/simbita-app/public');
 define('APP_NAME', 'SIMBITA');
 define('APP_VERSION', '1.0.0');
 
-// =====================================================================
-// 4. DEBUG MODE
-// =====================================================================
-/**
- * true  = Development (tampilkan error detail + akun demo di login)
- * false = Production  (error disembunyikan, hanya log)
- */
-define('APP_DEBUG', false);
-
-// =====================================================================
-// 5. DATABASE CONFIGURATION
-// =====================================================================
+// 4. DATABASE CONFIGURATION
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'simbita_db');
 define('DB_USER', 'root');
@@ -55,80 +31,54 @@ define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 define('DB_PORT', 3306);
 
-// =====================================================================
-// 6. FILE UPLOAD CONFIGURATION
-// =====================================================================
+// 5. FILE UPLOAD CONFIGURATION
 define('STORAGE_PATH', dirname(__DIR__) . '/storage/documents');
-define('MAX_UPLOAD_BYTES', 25 * 1024 * 1024);  // 25 MB
+define('MAX_UPLOAD_BYTES', 25 * 1024 * 1024);
 define('ALLOWED_MIME', [
     'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
 ]);
 define('ALLOWED_EXTENSIONS', ['pdf', 'doc', 'docx']);
 
-// Pastikan folder storage ada
 if (!is_dir(STORAGE_PATH)) {
     @mkdir(STORAGE_PATH, 0755, true);
 }
 
-// =====================================================================
-// 7. SESSION CONFIGURATION
-// =====================================================================
-define('SESSION_LIFETIME', 7200);        // 2 jam (dalam detik)
-define('REMEMBER_LIFETIME', 2592000);    // 30 hari (dalam detik)
+// 6. SESSION CONFIGURATION
+define('SESSION_LIFETIME', 7200);
+define('REMEMBER_LIFETIME', 2592000);
 define('SESSION_NAME', 'simbita_session');
 
-// =====================================================================
-// 8. PAGINATION
-// =====================================================================
+// 7. PAGINATION
 define('DEFAULT_PER_PAGE', 20);
 define('MAX_PER_PAGE', 100);
 
-// =====================================================================
-// 9. APP URL HELPERS
-// =====================================================================
-/**
- * Base path aplikasi (untuk handling subfolder deployment)
- * Contoh: jika BASE_URL = 'http://localhost/simbita-app/public'
- * maka APP_PATH = '/simbita-app/public'
- */
+// 8. APP URL HELPERS
 define('APP_PATH', parse_url(BASE_URL, PHP_URL_PATH) ?: '/');
 
-// =====================================================================
-// 10. SECURITY CONSTANTS
-// =====================================================================
-define('BCRYPT_COST', 12);                // Cost untuk password_hash
-define('CSRF_TOKEN_LIFETIME', 7200);      // 2 jam
-define('RATE_LIMIT_LOGIN', 5);            // Max 5 login attempt per menit
-define('RATE_LIMIT_WINDOW', 60);          // Window 1 menit
+// 9. SECURITY CONSTANTS
+define('BCRYPT_COST', 12);
+define('CSRF_TOKEN_LIFETIME', 7200);
+define('RATE_LIMIT_LOGIN', 5);
+define('RATE_LIMIT_WINDOW', 60);
 
-// =====================================================================
-// 11. NOTIFICATION CONFIGURATION
-// =====================================================================
+// 10. NOTIFICATION CONFIGURATION
 define('NOTIFICATION_MAX_TITLE', 255);
 define('NOTIFICATION_MAX_MESSAGE', 1000);
-define('NOTIFICATION_RETENTION_DAYS', 30); // Hapus notifikasi lama setelah 30 hari
+define('NOTIFICATION_RETENTION_DAYS', 30);
 
-// =====================================================================
-// 12. ACADEMIC CONFIGURATION (SIMBITA specific)
-// =====================================================================
-define('MAX_SUPERVISORS', 2);             // Max dosen pembimbing per TA
-define('MAX_KEYWORDS', 10);               // Max kata kunci per TA
-define('ABSTRACT_MAX_LENGTH', 2000);      // Max panjang abstrak
-define('TITLE_MAX_LENGTH', 300);          // Max panjang judul
+// 11. ACADEMIC CONFIGURATION
+define('MAX_SUPERVISORS', 2);
+define('MAX_KEYWORDS', 10);
+define('ABSTRACT_MAX_LENGTH', 2000);
+define('TITLE_MAX_LENGTH', 300);
 
-// =====================================================================
-// 13. ENVIRONMENT DETECTION
-// =====================================================================
+// 12. ENVIRONMENT DETECTION
 define('IS_CLI', php_sapi_name() === 'cli');
-define('IS_AJAX', !empty($_SERVER['HTTP_X_REQUESTED_WITH']) 
-    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-define('IS_HTTPS', (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
-    || ($_SERVER['SERVER_PORT'] ?? 80) == 443);
+define('IS_AJAX', !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+define('IS_HTTPS', (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443);
 
-// =====================================================================
-// 14. DEVELOPER CONTACT (untuk error page)
-// =====================================================================
+// 13. DEVELOPER CONTACT
 define('ADMIN_EMAIL', 'admin@simbita.id');
 define('SUPPORT_EMAIL', 'support@simbita.id');
