@@ -6,13 +6,14 @@ unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 $total = count($faculties ?? []);
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <title>Data Fakultas - <?= e(APP_NAME) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <link href="<?= BASE_URL ?>/assets/css/admin.css" rel="stylesheet">
+    <link href="<?= BASE_URL ?>/assets/css/darkmode.css" rel="stylesheet">
     <style>
         .fc-view { animation: fcFade 0.4s ease; }
         @keyframes fcFade { from { opacity: 0; } to { opacity: 1; } }
@@ -57,7 +58,7 @@ $total = count($faculties ?? []);
     </style>
 </head>
 <body>
-    <?php require dirname(__DIR__) . '/partials/navbar.php'; ?>
+   <?php require dirname(__DIR__) . '/partials/navbar.php'; ?>
 
     <div class="container fc-view">
         <div class="fc-header">
@@ -75,7 +76,7 @@ $total = count($faculties ?? []);
                 <button type="button" class="fc-add-btn" id="fcAddBtn">
                     <i class="bi bi-plus-lg"></i> Tambah Fakultas
                 </button>
-            </div >
+            </div>
         </div>
 
         <?php if ($flashError): ?>
@@ -145,22 +146,6 @@ $total = count($faculties ?? []);
                     <button type="submit" class="fc-btn fc-btn-primary"><i class="bi bi-save-fill"></i> Simpan</button>
                 </div>
             </form>
-            <form method="POST" action="<?= BASE_URL ?>/admin/faculties/update" id="fcUpdateForm" style="display:none;">
-                <input type="hidden" name="csrf_token" value="<?= e(Csrf::token()) ?>">
-                <input type="hidden" name="id" id="fcUpdateId">
-                <div class="fc-field">
-                    <label class="fc-label">Kode Fakultas</label>
-                    <input type="text" name="code" id="fcUpdateCode" class="fc-input" required maxlength="20">
-                </div>
-                <div class="fc-field">
-                    <label class="fc-label">Nama Fakultas</label>
-                    <input type="text" name="name" id="fcUpdateName" class="fc-input" required maxlength="150">
-                </div>
-                <div class="fc-modal-actions">
-                    <button type="button" class="fc-btn fc-btn-cancel" id="fcUpdateCancel">Batal</button>
-                    <button type="submit" class="fc-btn fc-btn-primary"><i class="bi bi-save-fill"></i> Perbarui</button>
-                </div>
-            </form>
         </div>
     </div>
 
@@ -186,35 +171,55 @@ $total = count($faculties ?? []);
         const formModal = document.getElementById('fcFormModal');
         const delModal = document.getElementById('fcDelModal');
         const fcForm = document.getElementById('fcForm');
-        const fcUpdateForm = document.getElementById('fcUpdateForm');
+        const fcAddBtn = document.getElementById('fcAddBtn');
 
-        document.getElementById('fcAddBtn').addEventListener('click', () => {
-            document.getElementById('fcFormTitle').textContent = 'Tambah Fakultas';
-            fcForm.style.display = 'block';
-            fcUpdateForm.style.display = 'none';
-            fcForm.action = '<?= BASE_URL ?>/admin/faculties/store';
+        // Fungsi untuk reset form dan modal dengan cara yang PASTI
+        const resetForm = () => {
+            fcForm.reset();
             document.getElementById('fcFormId').value = '';
             document.getElementById('fcFormCode').value = '';
             document.getElementById('fcFormName').value = '';
-            formModal.classList.add('is-open');
+            document.getElementById('fcFormTitle').textContent = 'Tambah Fakultas';
+            fcForm.action = '<?= BASE_URL ?>/admin/faculties/store';
+        };
+
+        // Event listener untuk tombol Tambah
+        if (fcAddBtn) {
+            fcAddBtn.addEventListener('click', () => {
+                resetForm();
+                formModal.classList.add('is-open');
+                // Fokus ke input pertama setelah modal terbuka
+                setTimeout(() => document.getElementById('fcFormCode').focus(), 100);
+            });
+        }
+
+        // Event listener untuk tombol Cancel
+        document.getElementById('fcCancel').addEventListener('click', () => {
+            formModal.classList.remove('is-open');
+            resetForm();
         });
 
+        // Tutup modal jika klik di luar
+        formModal.addEventListener('click', (e) => {
+            if (e.target === formModal) {
+                formModal.classList.remove('is-open');
+                resetForm();
+            }
+        });
+
+        // Event listener untuk tombol Edit
         document.querySelectorAll('[data-edit-id]').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.getElementById('fcFormTitle').textContent = 'Edit Fakultas';
-                fcForm.style.display = 'none';
-                fcUpdateForm.style.display = 'block';
-                fcUpdateForm.action = '<?= BASE_URL ?>/admin/faculties/update';
-                document.getElementById('fcUpdateId').value = btn.dataset.editId;
-                document.getElementById('fcUpdateCode').value = btn.dataset.editCode;
-                document.getElementById('fcUpdateName').value = btn.dataset.editName;
+                document.getElementById('fcFormId').value = btn.dataset.editId;
+                document.getElementById('fcFormCode').value = btn.dataset.editCode;
+                document.getElementById('fcFormName').value = btn.dataset.editName;
+                fcForm.action = '<?= BASE_URL ?>/admin/faculties/update';
                 formModal.classList.add('is-open');
             });
         });
 
-        document.getElementById('fcCancel').addEventListener('click', () => formModal.classList.remove('is-open'));
-        document.getElementById('fcUpdateCancel').addEventListener('click', () => formModal.classList.remove('is-open'));
-
+        // Event listener untuk tombol Delete
         document.querySelectorAll('[data-del-id]').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.getElementById('fcDelId').value = btn.dataset.delId;
@@ -222,13 +227,13 @@ $total = count($faculties ?? []);
                 document.getElementById('fcDelMsg').innerHTML = count > 0
                     ? 'Fakultas <strong>' + btn.dataset.delName + '</strong> memiliki <strong>' + count + ' program studi</strong> dan tidak dapat dihapus. Hapus prodi terkait terlebih dahulu.'
                     : 'Hapus fakultas <strong>' + btn.dataset.delName + '</strong>? Tindakan ini tidak dapat dibatalkan.';
-                delModal.querySelector('button[type="submit"]').disabled = count > 0;
                 delModal.classList.add('is-open');
             });
         });
 
         document.getElementById('fcDelCancel').addEventListener('click', () => delModal.classList.remove('is-open'));
 
+        // Auto-dismiss alert
         document.querySelectorAll('.alert-dismissible .btn-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const a = e.target.closest('.alert');
