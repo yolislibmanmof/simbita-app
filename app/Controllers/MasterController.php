@@ -4,13 +4,14 @@ declare(strict_types=1);
 class MasterController
 {
     // ============================================================
-    // FAKULTAS
+    // FAKULTAS - FIXED!
     // ============================================================
     public static function faculties(): void
     {
         $faculties = Faculty::all();
-        foreach ($faculties as &$f) {
-            $f['prodi_count'] = Faculty::countStudyPrograms((int)$f['id']);
+        // Perbaikan: pakai indeks array, bukan referensi
+        foreach ($faculties as $i => $f) {
+            $faculties[$i]['prodi_count'] = Faculty::countStudyPrograms((int)$f['id']);
         }
         require dirname(__DIR__) . '/Views/admin/faculties.php';
     }
@@ -31,7 +32,6 @@ class MasterController
             return;
         }
 
-        // Cek duplikasi sebelum insert
         $db = Database::connection();
         $stmt = $db->prepare('SELECT id FROM faculties WHERE code = ? OR name = ?');
         $stmt->execute([$code, $name]);
@@ -67,7 +67,6 @@ class MasterController
             return;
         }
 
-        // Cek duplikasi (kecuali untuk data yang sedang diedit ini sendiri)
         $db = Database::connection();
         $stmt = $db->prepare('SELECT id FROM faculties WHERE (code = ? OR name = ?) AND id != ?');
         $stmt->execute([$code, $name, $id]);
@@ -105,14 +104,15 @@ class MasterController
     }
 
     // ============================================================
-    // PROGRAM STUDI
+    // PROGRAM STUDI - FIXED!
     // ============================================================
     public static function studyPrograms(): void
     {
         $prodis = StudyProgram::all();
-        foreach ($prodis as &$p) {
-            $p['student_count']  = StudyProgram::countStudents((int)$p['id']);
-            $p['lecturer_count'] = StudyProgram::countLecturers((int)$p['id']);
+        // Perbaikan: pakai indeks array, bukan referensi
+        foreach ($prodis as $i => $p) {
+            $prodis[$i]['student_count']  = StudyProgram::countStudents((int)$p['id']);
+            $prodis[$i]['lecturer_count'] = StudyProgram::countLecturers((int)$p['id']);
         }
         $faculties = Faculty::all();
         require dirname(__DIR__) . '/Views/admin/study_programs.php';
