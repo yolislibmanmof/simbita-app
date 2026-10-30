@@ -48,7 +48,7 @@ $myName = Auth::user()['name'] ?? '';
     </style>
 </head>
 <body>
-    <?php require dirname(__DIR__, 2) . '/partials/navbar.php'; ?>
+    <?php require __DIR__ . '/partials/navbar.php'; ?>
     <div class="container ms-view">
         <div class="ms-header">
             <h1 class="ms-header-title"><span class="ms-header-icon"><i class="bi bi-chat-dots-fill"></i></span> Chat Bimbingan</h1>

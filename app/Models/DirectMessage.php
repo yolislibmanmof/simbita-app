@@ -14,6 +14,7 @@ class DirectMessage
     public static function partnersForUser(int $userId, string $role): array
     {
         $db = Database::connection();
+        
         if ($role === 'student') {
             $sql = 'SELECT aw.id AS work_id, aw.title, u.id AS partner_id, u.name AS partner_name, lp.academic_degree AS partner_meta
                     FROM academic_works aw
@@ -31,18 +32,19 @@ class DirectMessage
                     JOIN lecturer_profiles lp ON lp.id = sa.lecturer_id
                     WHERE lp.user_id = ? AND sa.is_active = 1 ORDER BY u.name';
         }
+        
         $stmt = $db->prepare($sql);
         $stmt->execute([$userId]);
         $rows = $stmt->fetchAll();
-        foreach ($rows as &$r) {
-            $r['unread'] = (int)$db->prepare('SELECT COUNT(*) FROM direct_messages WHERE academic_work_id = ? AND sender_id = ? AND receiver_id = ? AND is_read = 0') instanceof PDOStatement ? 0 : 0;
-        }
-        unset($r);
+
+        // Hitung pesan belum dibaca untuk setiap partner secara akurat
         foreach ($rows as &$r) {
             $st = $db->prepare('SELECT COUNT(*) FROM direct_messages WHERE academic_work_id = ? AND sender_id = ? AND receiver_id = ? AND is_read = 0');
             $st->execute([$r['work_id'], $r['partner_id'], $userId]);
             $r['unread'] = (int)$st->fetchColumn();
         }
+        unset($r); // Lepaskan referensi array
+
         return $rows;
     }
 

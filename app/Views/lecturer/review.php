@@ -1274,7 +1274,7 @@ $daysElapsed = max(0, (int) ((time() - $startedAt) / 86400));
         'use strict';
         
         // Konfigurasi PDF
-        const pdfUrl = "<?= !empty($documents) ? e(BASE_URL . '/documents/download?id=' . $documents[0]['id']) : '' ?>";
+        const pdfUrl = "<?= !empty($documents) ? e(BASE_URL . '/pdf-stream.php?id=' . (int)($documents[0]['version_id'] ?? $documents[0]['id'])) : '' ?>";
         const versionId = <?= !empty($documents) ? (int)$documents[0]['id'] : 0 ?>;
         let pdfDoc = null, pageNum = 1, pageRendering = false, pageNumPending = null, scale = 1.0;
         let currentAnnotations = [];

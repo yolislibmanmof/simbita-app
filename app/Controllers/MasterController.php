@@ -24,15 +24,28 @@ class MasterController
         }
         $code = strtoupper(trim($_POST['code'] ?? ''));
         $name = trim($_POST['name'] ?? '');
+        
         if ($code === '' || $name === '') {
             flash_set('error', 'Kode dan nama fakultas wajib diisi.');
-        } else {
-            try {
-                Faculty::create($code, $name);
-                flash_set('success', 'Fakultas "' . $name . '" berhasil ditambahkan.');
-            } catch (Throwable $e) {
-                flash_set('error', 'Gagal: ' . $e->getMessage());
-            }
+            redirect('/admin/faculties');
+            return;
+        }
+
+        // Cek duplikasi sebelum insert
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT id FROM faculties WHERE code = ? OR name = ?');
+        $stmt->execute([$code, $name]);
+        if ($stmt->fetch()) {
+            flash_set('error', 'Gagal: Kode atau Nama Fakultas tersebut sudah ada. Gunakan nama/kode yang berbeda.');
+            redirect('/admin/faculties');
+            return;
+        }
+
+        try {
+            Faculty::create($code, $name);
+            flash_set('success', 'Fakultas "' . $name . '" berhasil ditambahkan.');
+        } catch (Throwable $e) {
+            flash_set('error', 'Gagal: ' . $e->getMessage());
         }
         redirect('/admin/faculties');
     }
@@ -47,11 +60,28 @@ class MasterController
         $id = (int)($_POST['id'] ?? 0);
         $code = strtoupper(trim($_POST['code'] ?? ''));
         $name = trim($_POST['name'] ?? '');
+        
         if ($id <= 0 || $code === '' || $name === '') {
             flash_set('error', 'Data tidak lengkap.');
-        } else {
+            redirect('/admin/faculties');
+            return;
+        }
+
+        // Cek duplikasi (kecuali untuk data yang sedang diedit ini sendiri)
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT id FROM faculties WHERE (code = ? OR name = ?) AND id != ?');
+        $stmt->execute([$code, $name, $id]);
+        if ($stmt->fetch()) {
+            flash_set('error', 'Gagal: Kode atau Nama Fakultas tersebut sudah digunakan oleh fakultas lain.');
+            redirect('/admin/faculties');
+            return;
+        }
+
+        try {
             Faculty::update($id, $code, $name);
             flash_set('success', 'Fakultas berhasil diperbarui.');
+        } catch (Throwable $e) {
+            flash_set('error', 'Gagal: ' . $e->getMessage());
         }
         redirect('/admin/faculties');
     }

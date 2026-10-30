@@ -3,7 +3,7 @@ declare(strict_types=1);
 $flashError = $_SESSION['flash_error'] ?? null;
 $flashSuccess = $_SESSION['flash_success'] ?? null;
 unset($_SESSION['flash_error'], $_SESSION['flash_success']);
-$total = count($faculties);
+$total = count($faculties ?? []);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -19,8 +19,8 @@ $total = count($faculties);
         .fc-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
         .fc-header-title { display: flex; align-items: center; gap: 0.75rem; font-size: 1.875rem; font-weight: 800; color: var(--gray-900); margin: 0 0 0.35rem; }
         .fc-header-icon { width: 48px; height: 48px; background: linear-gradient(135deg,#fce7f3,#fbcfe8); border-radius: var(--radius-xl); display: flex; align-items: center; justify-content: center; color: #be185d; font-size: 1.5rem; }
-        .fc-header-sub { color: var(--gray-500); font-size: 0.95rem; margin: 0 0 0 calc(48px + 0.75rem); }
-        .fc-add-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: linear-gradient(135deg,#ec4899,#be185d); color: white; border-radius: var(--radius-lg); font-weight: 600; text-decoration: none; box-shadow: 0 10px 20px -8px rgba(236,72,153,0.5); transition: all 0.3s; }
+        .fc-header-sub { color: var(--gray-500); font-size: 0.95rem; margin: 0; }
+        .fc-add-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: linear-gradient(135deg,#ec4899,#be185d); color: white; border-radius: var(--radius-lg); font-weight: 600; text-decoration: none; box-shadow: 0 10px 20px -8px rgba(236,72,153,0.5); transition: all 0.3s; border: none; cursor: pointer; font-family: inherit; font-size: 0.9rem; }
         .fc-add-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 25px -8px rgba(236,72,153,0.6); color: white; }
         .fc-card { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-2xl); overflow: hidden; }
         .fc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; padding: 1.5rem; }
@@ -58,23 +58,25 @@ $total = count($faculties);
 </head>
 <body>
     <?php require dirname(__DIR__) . '/partials/navbar.php'; ?>
-<div class="fc-header">
-    <div>
-        <h1 class="fc-header-title">
-            <span class="fc-header-icon"><i class="bi bi-building"></i></span>
-            Data Fakultas
-        </h1>
-        <p class="fc-header-sub">Kelola struktur fakultas dan unit akademik universitas.</p>
-    </div>
-    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-        <a href="<?= BASE_URL ?>/admin/study-programs" class="fc-add-btn" style="background: linear-gradient(135deg,#06b6d4,#0891b2); box-shadow: 0 10px 20px -8px rgba(6,182,212,0.5);">
-            <i class="bi bi-mortarboard-fill"></i> Kelola Prodi
-        </a>
-        <button type="button" class="fc-add-btn" id="fcAddBtn" style="background: linear-gradient(135deg,#ec4899,#be185d); box-shadow: 0 10px 20px -8px rgba(236,72,153,0.5);">
-            <i class="bi bi-plus-lg"></i> Tambah Fakultas
-        </button>
-    </div>
-</div>
+
+    <div class="container fc-view">
+        <div class="fc-header">
+            <div>
+                <h1 class="fc-header-title">
+                    <span class="fc-header-icon"><i class="bi bi-building"></i></span>
+                    Data Fakultas
+                </h1>
+                <p class="fc-header-sub">Kelola struktur fakultas dan unit akademik universitas.</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                <a href="<?= BASE_URL ?>/admin/study-programs" class="fc-add-btn" style="background: linear-gradient(135deg,#06b6d4,#0891b2); box-shadow: 0 10px 20px -8px rgba(6,182,212,0.5);">
+                    <i class="bi bi-mortarboard-fill"></i> Kelola Prodi
+                </a>
+                <button type="button" class="fc-add-btn" id="fcAddBtn">
+                    <i class="bi bi-plus-lg"></i> Tambah Fakultas
+                </button>
+            </div >
+        </div>
 
         <?php if ($flashError): ?>
             <div class="alert alert-danger alert-dismissible"><div class="alert-content"><i class="bi bi-exclamation-triangle-fill"></i> <?= e($flashError) ?></div><button class="btn-close">&times;</button></div>
@@ -143,6 +145,22 @@ $total = count($faculties);
                     <button type="submit" class="fc-btn fc-btn-primary"><i class="bi bi-save-fill"></i> Simpan</button>
                 </div>
             </form>
+            <form method="POST" action="<?= BASE_URL ?>/admin/faculties/update" id="fcUpdateForm" style="display:none;">
+                <input type="hidden" name="csrf_token" value="<?= e(Csrf::token()) ?>">
+                <input type="hidden" name="id" id="fcUpdateId">
+                <div class="fc-field">
+                    <label class="fc-label">Kode Fakultas</label>
+                    <input type="text" name="code" id="fcUpdateCode" class="fc-input" required maxlength="20">
+                </div>
+                <div class="fc-field">
+                    <label class="fc-label">Nama Fakultas</label>
+                    <input type="text" name="name" id="fcUpdateName" class="fc-input" required maxlength="150">
+                </div>
+                <div class="fc-modal-actions">
+                    <button type="button" class="fc-btn fc-btn-cancel" id="fcUpdateCancel">Batal</button>
+                    <button type="submit" class="fc-btn fc-btn-primary"><i class="bi bi-save-fill"></i> Perbarui</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -167,11 +185,14 @@ $total = count($faculties);
     (function() {
         const formModal = document.getElementById('fcFormModal');
         const delModal = document.getElementById('fcDelModal');
-        const form = document.getElementById('fcForm');
+        const fcForm = document.getElementById('fcForm');
+        const fcUpdateForm = document.getElementById('fcUpdateForm');
 
         document.getElementById('fcAddBtn').addEventListener('click', () => {
             document.getElementById('fcFormTitle').textContent = 'Tambah Fakultas';
-            form.action = '<?= BASE_URL ?>/admin/faculties/store';
+            fcForm.style.display = 'block';
+            fcUpdateForm.style.display = 'none';
+            fcForm.action = '<?= BASE_URL ?>/admin/faculties/store';
             document.getElementById('fcFormId').value = '';
             document.getElementById('fcFormCode').value = '';
             document.getElementById('fcFormName').value = '';
@@ -181,15 +202,18 @@ $total = count($faculties);
         document.querySelectorAll('[data-edit-id]').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.getElementById('fcFormTitle').textContent = 'Edit Fakultas';
-                form.action = '<?= BASE_URL ?>/admin/faculties/update';
-                document.getElementById('fcFormId').value = btn.dataset.editId;
-                document.getElementById('fcFormCode').value = btn.dataset.editCode;
-                document.getElementById('fcFormName').value = btn.dataset.editName;
+                fcForm.style.display = 'none';
+                fcUpdateForm.style.display = 'block';
+                fcUpdateForm.action = '<?= BASE_URL ?>/admin/faculties/update';
+                document.getElementById('fcUpdateId').value = btn.dataset.editId;
+                document.getElementById('fcUpdateCode').value = btn.dataset.editCode;
+                document.getElementById('fcUpdateName').value = btn.dataset.editName;
                 formModal.classList.add('is-open');
             });
         });
 
         document.getElementById('fcCancel').addEventListener('click', () => formModal.classList.remove('is-open'));
+        document.getElementById('fcUpdateCancel').addEventListener('click', () => formModal.classList.remove('is-open'));
 
         document.querySelectorAll('[data-del-id]').forEach(btn => {
             btn.addEventListener('click', () => {

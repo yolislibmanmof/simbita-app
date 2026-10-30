@@ -17,7 +17,6 @@ class DocumentController
         $db = Database::connection();
         $userId = Auth::id();
         
-        // Ambil student profile
         $stmt = $db->prepare('SELECT id FROM student_profiles WHERE user_id = ?');
         $stmt->execute([$userId]);
         $sp = $stmt->fetch();
@@ -25,13 +24,11 @@ class DocumentController
             json_response(['error' => 'Profil mahasiswa tidak ditemukan'], 404);
         }
 
-        // Ambil academic work mahasiswa
         $work = AcademicWork::getByStudentId((int)$sp['id']);
         if (!$work) {
             json_response(['error' => 'Anda belum memiliki tugas akhir'], 400);
         }
 
-        // Validasi file upload
         if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             json_response(['error' => 'File tidak valid atau upload gagal'], 400);
         }
@@ -44,14 +41,12 @@ class DocumentController
             json_response(['error' => "Ukuran file terlalu besar (maks {$maxMb}MB)"], 400);
         }
 
-        // Validasi ekstensi
         $allowedExts = ['pdf', 'doc', 'docx'];
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, $allowedExts)) {
             json_response(['error' => 'Format file tidak diizinkan. Gunakan PDF, DOC, atau DOCX'], 400);
         }
 
-        // Validasi MIME
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime = finfo_file($finfo, $file['tmp_name']);
         finfo_close($finfo);
@@ -65,7 +60,6 @@ class DocumentController
             json_response(['error' => 'Tipe file tidak valid'], 400);
         }
 
-        // Generate nama file unik
         $storedFilename = bin2hex(random_bytes(16)) . '.' . $ext;
         $storageDir = dirname(__DIR__, 2) . '/storage/documents';
         
@@ -75,7 +69,6 @@ class DocumentController
 
         $filePath = $storageDir . '/' . $storedFilename;
 
-        // Pindahkan file
         if (!move_uploaded_file($file['tmp_name'], $filePath)) {
             json_response(['error' => 'Gagal menyimpan file ke server'], 500);
         }
@@ -86,33 +79,25 @@ class DocumentController
         try {
             $db->beginTransaction();
 
-            // Cek apakah document sudah ada
             $stmt = $db->prepare('SELECT id FROM documents WHERE academic_work_id = ? AND document_type_id = ?');
             $stmt->execute([$work['id'], $docTypeId]);
             $existingDoc = $stmt->fetch();
 
             if ($existingDoc) {
                 $docId = (int)$existingDoc['id'];
-                // Nonaktifkan versi sebelumnya
-                $db->prepare('UPDATE document_versions SET is_current = 0 WHERE document_id = ?')
-                    ->execute([$docId]);
-                // Ambil versi terakhir
+                $db->prepare('UPDATE document_versions SET is_current = 0 WHERE document_id = ?')->execute([$docId]);
+                
                 $stmt = $db->prepare('SELECT MAX(version_number) AS max_ver FROM document_versions WHERE document_id = ?');
                 $stmt->execute([$docId]);
                 $maxVer = (int)($stmt->fetch()['max_ver'] ?? 0);
                 $newVer = $maxVer + 1;
             } else {
-                // Buat document baru
-                $stmt = $db->prepare('
-                    INSERT INTO documents (academic_work_id, document_type_id, title, created_at)
-                    VALUES (?, ?, ?, NOW())
-                ');
+                $stmt = $db->prepare('INSERT INTO documents (academic_work_id, document_type_id, title, created_at) VALUES (?, ?, ?, NOW())');
                 $stmt->execute([$work['id'], $docTypeId, $title]);
                 $docId = (int)$db->lastInsertId();
                 $newVer = 1;
             }
 
-            // Buat versi baru
             $stmt = $db->prepare('
                 INSERT INTO document_versions 
                     (document_id, version_number, is_current, original_filename, stored_filename, 
@@ -125,22 +110,15 @@ class DocumentController
             ]);
             $versionId = (int)$db->lastInsertId();
 
-            // Buat review otomatis
-            $stmt = $db->prepare('
-                INSERT INTO reviews 
-                    (document_version_id, reviewer_id, review_status, created_at)
-                VALUES (?, NULL, \'pending\', NOW())
-            ');
+            $stmt = $db->prepare('INSERT INTO reviews (document_version_id, reviewer_id, review_status, created_at) VALUES (?, NULL, \'pending\', NOW())');
             $stmt->execute([$versionId]);
 
-            // Update status work ke "writing"
             if ($work['status'] === 'draft' || $work['status'] === 'proposal') {
                 AcademicWork::updateStatus((int)$work['id'], 'writing');
             }
 
             $db->commit();
 
-            // Kirim notifikasi ke supervisor
             try {
                 $stmt = $db->prepare('
                     SELECT lp.user_id FROM supervision_assignments sa
@@ -176,9 +154,12 @@ class DocumentController
         }
     }
 
+    /**
+     * Download/Stream Dokumen (BULLETPROOF VERSION)
+     */
     public static function download(): void
     {
-        // 1. Inisialisasi Session (Wajib untuk Auth)
+        // 1. Pastikan session aktif untuk validasi Auth
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -193,19 +174,16 @@ class DocumentController
         $doc = null;
 
         // 2. LOGIKA PENCARIAN DOKUMEN (3 LAYER FALLBACK)
-        // Layer 1: Cari berdasarkan document_versions.id
         $stmt = $db->prepare('SELECT dv.*, d.academic_work_id FROM document_versions dv JOIN documents d ON dv.document_id = d.id WHERE dv.id = ? LIMIT 1');
         $stmt->execute([$id]);
         $doc = $stmt->fetch();
 
-        // Layer 2: Cari berdasarkan documents.id (ambil versi current)
         if (!$doc) {
             $stmt = $db->prepare('SELECT dv.*, d.academic_work_id FROM document_versions dv JOIN documents d ON dv.document_id = d.id WHERE d.id = ? AND dv.is_current = 1 LIMIT 1');
             $stmt->execute([$id]);
             $doc = $stmt->fetch();
         }
 
-        // Layer 3: Cari berdasarkan documents.id (ambil versi terbaru)
         if (!$doc) {
             $stmt = $db->prepare('SELECT dv.*, d.academic_work_id FROM document_versions dv JOIN documents d ON dv.document_id = d.id WHERE d.id = ? ORDER BY dv.id DESC LIMIT 1');
             $stmt->execute([$id]);
@@ -217,7 +195,7 @@ class DocumentController
             exit('Dokumen tidak ditemukan di database.');
         }
 
-        // 3. VERIFIKASI AKSES (Diperbaiki: Menambahkan cek Reviewer untuk Dosen)
+        // 3. VERIFIKASI AKSES
         $canAccess = false;
         $userRole = $_SESSION['simbita_user']['role'] ?? null;
         $userId = $_SESSION['simbita_user']['id'] ?? null;
@@ -229,12 +207,10 @@ class DocumentController
             $stmt->execute([$doc['academic_work_id'], $userId]);
             $canAccess = (bool)$stmt->fetch();
         } elseif ($userRole === 'lecturer') {
-            // Cek apakah dosen adalah pembimbing
             $stmt = $db->prepare('SELECT 1 FROM supervision_assignments sa JOIN lecturer_profiles lp ON sa.lecturer_id = lp.id WHERE sa.academic_work_id = ? AND lp.user_id = ? AND sa.is_active = 1 LIMIT 1');
             $stmt->execute([$doc['academic_work_id'], $userId]);
             $canAccess = (bool)$stmt->fetch();
             
-            // Cek juga jika dosen adalah reviewer
             if (!$canAccess) {
                 $stmt = $db->prepare('SELECT 1 FROM reviews r WHERE r.document_version_id = ? AND r.reviewer_id = ? LIMIT 1');
                 $stmt->execute([$id, $userId]);
@@ -256,76 +232,83 @@ class DocumentController
         ];
 
         foreach ($candidates as $candidate) {
-            if ($candidate && file_exists($candidate) && is_readable($candidate) && filesize($candidate) > 0) {
-                $filePath = $candidate;
-                break;
+            if ($candidate && file_exists($candidate) && is_readable($candidate)) {
+                $fSize = filesize($candidate);
+                if ($fSize > 0) {
+                    $filePath = $candidate;
+                    $fileSize = $fSize;
+                    break;
+                }
             }
         }
 
         if (!$filePath) {
             http_response_code(404);
-            exit('File fisik tidak ditemukan atau rusak.');
+            exit('File fisik tidak ditemukan atau berukuran 0 byte.');
         }
 
-        $fileSize = filesize($filePath);
-
-        // 5. STREAMING FILE DENGAN DUKUNGAN HTTP RANGE (PENTING UNTUK PDF.JS)
-        
-        // A. Bersihkan SEMUA output buffer yang ada (Wajib!)
+        // 5. STREAMING FILE (BULLETPROOF)
+        // A. HAPUS PAKSA semua output buffer sebelumnya (membunuh whitespace/BOM dari file lain)
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
         
-        // B. Matikan kompresi output
+        // B. Matikan kompresi agar PDF tidak korup
         if (function_exists('apache_setenv')) {
             @apache_setenv('no-gzip', 1);
         }
         @ini_set('zlib.output_compression', 0);
         @ini_set('implicit_flush', 1);
 
-        // C. Kirim Header PDF Dasar
+        // C. Kirim Header
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
         header('Cache-Control: private, max-age=3600');
         header('Accept-Ranges: bytes');
+        header('Content-Length: ' . $fileSize);
 
-        // D. Dukungan HTTP Range Request (Kunci agar PDF.js tidak gagal load)
+        // D. Tangani HTTP Range Request (Wajib untuk PDF.js)
         if (isset($_SERVER['HTTP_RANGE'])) {
             $range = $_SERVER['HTTP_RANGE'];
             if (preg_match('/bytes=(\d+)-(\d*)/', $range, $matches)) {
                 $start = (int)$matches[1];
                 $end = $matches[2] !== '' ? (int)$matches[2] : $fileSize - 1;
-                $length = $end - $start + 1;
                 
-                http_response_code(206); // 206 Partial Content
-                header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
+                // Validasi agar tidak error jika start melebihi ukuran file
+                if ($start >= $fileSize) {
+                    http_response_code(416);
+                    header("Content-Range: bytes */$fileSize");
+                    exit;
+                }
+                
+                $length = $end - $start + 1;
+                http_response_code(206);
+                header("Content-Range: bytes $start-$end/$fileSize");
                 header('Content-Length: ' . $length);
                 
                 $handle = fopen($filePath, 'rb');
-                fseek($handle, $start);
-                echo fread($handle, $length);
-                fclose($handle);
+                if ($handle) {
+                    fseek($handle, $start);
+                    echo fread($handle, $length);
+                    fclose($handle);
+                } else {
+                    error_log("[SIMBITA PDF ERROR] Gagal fopen file: " . $filePath);
+                    http_response_code(500);
+                    exit('Gagal membuka file.');
+                }
                 exit;
             }
         }
 
-        // E. Full file streaming (Stabil untuk file besar > 1MB)
-        header('Content-Length: ' . $fileSize);
-        
-        if ($fileSize > 1048576) {
-            $handle = fopen($filePath, 'rb');
-            if ($handle) {
-                while (!feof($handle)) {
-                    echo fread($handle, 8192);
-                    flush();
-                }
-                fclose($handle);
-            }
-        } else {
-            readfile($filePath);
+        // E. Full file streaming: readfile adalah metode PALING andal dan efisien di PHP
+        $result = @readfile($filePath);
+        if ($result === false) {
+            error_log("[SIMBITA PDF ERROR] readfile gagal untuk: " . $filePath);
+            http_response_code(500);
+            exit('Gagal membaca file PDF dari server.');
         }
         
-        // F. Matikan script segera
+        // F. Matikan script segera agar tidak ada HTML footer yang ikut tercampur
         exit;
     }
 
@@ -335,14 +318,12 @@ class DocumentController
     public static function getAnnotations(): void
     {
         Auth::start();
-
         $versionId = (int)($_GET['version_id'] ?? 0);
         if (!$versionId) {
             json_response(['error' => 'Version ID required'], 400);
         }
 
         $db = Database::connection();
-
         $stmt = $db->prepare('
             SELECT dc.id, dc.page_number, dc.pos_x_pct, dc.pos_y_pct, 
                    dc.comment, dc.priority, dc.created_at,
@@ -366,9 +347,7 @@ class DocumentController
     public static function saveAnnotation(): void
     {
         Auth::requireRole('lecturer', 'admin');
-
-        $csrfToken = $_POST['csrf_token'] ?? '';
-        if (!Csrf::verify($csrfToken)) {
+        if (!Csrf::verify($_POST['csrf_token'] ?? '')) {
             json_response(['error' => 'Token tidak valid'], 419);
         }
 
@@ -410,7 +389,6 @@ class DocumentController
     public static function resolveComment(): void
     {
         Auth::start();
-
         $commentId = (int)($_POST['comment_id'] ?? 0);
         $resolved = (int)($_POST['resolved'] ?? 1);
 
@@ -422,7 +400,6 @@ class DocumentController
             $db = Database::connection();
             $stmt = $db->prepare('UPDATE document_comments SET is_resolved = ? WHERE id = ?');
             $stmt->execute([$resolved, $commentId]);
-
             json_response(['success' => true]);
         } catch (Throwable $e) {
             json_response(['error' => 'Gagal update komentar'], 500);
